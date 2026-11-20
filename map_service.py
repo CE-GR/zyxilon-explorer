@@ -476,7 +476,7 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
     Atlas (1°, usando los calibradores isotónicos propios de +24h, +48h y +72h)."""
     glob_records = []
     try:
-        from pipeline import global_fire_model, nasa_geos_fp, predictive_model as pm
+        from pipeline import global_fire_model, nasa_geos_fp
 
         # 1. Clústeres activos FIRMS fuera de República Dominicana
         if all_pts is not None and not all_pts.empty and "lat" in all_pts.columns and "lon" in all_pts.columns:
@@ -513,7 +513,7 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                 for _, r in top_clusters.iterrows():
                     g_lat = float(r["lat"])
                     g_lon = float(r["lon"])
-                    terr_name, cont_name = pm.identify_global_territory(g_lat, g_lon)
+                    terr_name, cont_name = geo.identify_global_territory(g_lat, g_lon)
                     terr_label = terr_name if cont_name.lower() in terr_name.lower() else f"{terr_name} · {cont_name}"
 
                     w24 = _lookup_geos_wind(wx_by_h[24], g_lat, g_lon, max_deg=0.35)
@@ -633,7 +633,7 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
         for gc in gfa_cells:
             g_lat = float(gc["lat"])
             g_lon = float(gc["lon"])
-            terr_name, cont_name = pm.identify_global_territory(g_lat, g_lon)
+            terr_name, cont_name = geo.identify_global_territory(g_lat, g_lon)
             terr_label = terr_name if cont_name.lower() in terr_name.lower() else f"{terr_name} · {cont_name}"
             p24_c = global_fire_model.predict(g_lat, g_lon, 24)
             p48_c = global_fire_model.predict(g_lat, g_lon, 48)

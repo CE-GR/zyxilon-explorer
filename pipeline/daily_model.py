@@ -338,6 +338,38 @@ def _metrics(
     pss = tpr - fpr
     ece, rel_curve = _reliability_and_ece(y, p, n_bins=10)
 
+    # Política de alertas escalonadas (Vigilancia / Advertencia / Crítico / Extremo)
+    cell_km2 = 116.6  # celda 0.1° a lat ~18.7°N (~11.1 km × 10.5 km)
+    total_km2_days = max(len(y) * cell_km2, 1.0)
+    tiers = []
+    for tier_name, th_val in (
+        ("pss_optimal", float(threshold)),
+        ("vigilancia_5pct", 0.05),
+        ("advertencia_10pct", 0.10),
+        ("critico_20pct", 0.20),
+        ("extremo_30pct", 0.30),
+    ):
+        pb = p >= th_val
+        t_tp = int((pb & (y == 1)).sum())
+        t_fp = int((pb & (y == 0)).sum())
+        t_fn = int(((~pb) & (y == 1)).sum())
+        t_tn = int(((~pb) & (y == 0)).sum())
+        t_prec = t_tp / max(t_tp + t_fp, 1)
+        t_far = t_fp / max(t_tp + t_fp, 1)
+        t_rec = t_tp / max(t_tp + t_fn, 1)
+        t_fpr = t_fp / max(t_fp + t_tn, 1)
+        tiers.append({
+            "tier": tier_name,
+            "threshold": round(th_val, 5),
+            "precision": round(t_prec, 4),
+            "far": round(t_far, 4),
+            "recall": round(t_rec, 4),
+            "fpr": round(t_fpr, 4),
+            "pss": round(t_rec - t_fpr, 4),
+            "area_alerted_pct": round(100.0 * (t_tp + t_fp) / max(len(y), 1), 2),
+            "false_alarms_per_1000km2_day": round(t_fp / (total_km2_days / 1000.0), 4),
+        })
+
     return {
         "roc_auc": round(float(roc_auc_score(y, p)), 4),
         "pr_auc": round(float(average_precision_score(y, p)), 4),
@@ -353,6 +385,7 @@ def _metrics(
         "fnr": round(float(fnr), 4),
         "ece": ece,
         "reliability_curve": rel_curve,
+        "alert_policy_tiers": tiers,
     }
 
 
@@ -502,32 +535,44 @@ def train_and_evaluate(verbose: bool = True) -> dict:
         "horizontes": horizontes,
     }
 
-    # Objetivo operativo observable: VIIRS NOAA-20 (2018–2026)
+    # Objetivo operativo observable: VIIRS NOAA-20 (calibración 2023 y prueba ciega 2024–2026 100% NOAA-20;
+    # entrenamiento continuo de 1 solo satélite 2012–2017 S-NPP + 2018–2022 NOAA-20 para estabilizar climatología 0.1°).
     if noaa20_path.exists():
-        P_n20 = build_panel(events_path=noaa20_path, train_end=NOAA20_TRAIN_END)
-        P_n20_clean = P_n20.dropna(subset=WX_FEATS)
-        n20_horizontes, n20_models = _evaluate_split(
-            P_n20, NOAA20_TRAIN_END, NOAA20_CAL_YEAR, NOAA20_TEST_START, verbose=verbose
-        )
-        OUT_MODEL_NOAA20.write_bytes(pickle.dumps(n20_models))
-        n20_model_sha = _sha256(OUT_MODEL_NOAA20)
-        build_or_load_cell_stats(
-            force=True, events_path=noaa20_path, train_end=NOAA20_TRAIN_END, out_path=OUT_CELL_STATS_NOAA20
-        )
+        snpp_df = pd.read_parquet(event_path).copy()
+        n20_df = pd.read_parquet(noaa20_path).copy()
+        snpp_df["date"] = pd.to_datetime(snpp_df["date"]).dt.normalize()
+        n20_df["date"] = pd.to_datetime(n20_df["date"]).dt.normalize()
+        n20_start = n20_df["date"].min()
+        cont_df = pd.concat([snpp_df[snpp_df["date"] < n20_start], n20_df], ignore_index=True)
+        cont_path = config.DATA_OUT / "_viirs_continuous_single_sensor.parquet"
+        cont_df.to_parquet(cont_path, index=False)
+        try:
+            P_n20 = build_panel(events_path=cont_path, train_end=NOAA20_TRAIN_END)
+            P_n20_clean = P_n20.dropna(subset=WX_FEATS)
+            n20_horizontes, n20_models = _evaluate_split(
+                P_n20, NOAA20_TRAIN_END, NOAA20_CAL_YEAR, NOAA20_TEST_START, verbose=verbose
+            )
+            OUT_MODEL_NOAA20.write_bytes(pickle.dumps(n20_models))
+            n20_model_sha = _sha256(OUT_MODEL_NOAA20)
+            build_or_load_cell_stats(
+                force=True, events_path=cont_path, train_end=NOAA20_TRAIN_END, out_path=OUT_CELL_STATS_NOAA20
+            )
+        finally:
+            cont_path.unlink(missing_ok=True)
         report["objetivo_observable_noaa20"] = {
             "objetivo": "P(≥1 evento VIIRS NOAA-20 en celda 0.1° en (t, t+h]) — objetivo operativo NRT activo",
             "split": {
-                "train": f"2018–{NOAA20_TRAIN_END}",
-                "calibracion": str(NOAA20_CAL_YEAR),
-                "prueba": f"{NOAA20_TEST_START}–{int(P_n20_clean['year'].max())}",
+                "train": f"2012–2017 S-NPP + 2018–{NOAA20_TRAIN_END} NOAA-20 (1 satélite/día)",
+                "calibracion": f"{NOAA20_CAL_YEAR} (100% NOAA-20)",
+                "prueba": f"{NOAA20_TEST_START}–{int(P_n20_clean['year'].max())} (100% NOAA-20)",
             },
-            "periodo_panel": [str(P_n20_clean["date"].min().date()), str(P_n20_clean["date"].max().date())],
+            "periodo_panel": [str(n20_df["date"].min().date()), str(n20_df["date"].max().date())],
             "n_celdas": int(P_n20_clean["c"].nunique()),
             "n_test_filas": int(len(P_n20_clean[P_n20_clean["year"] >= NOAA20_TEST_START])),
             "fuentes": {
                 "incendios_noaa20": {
                     "archivo": "data/processed/viirs_noaa20_events.parquet",
-                    "sensor": "VIIRS NOAA-20 (JPSS-1, activo NRT)",
+                    "sensor": "VIIRS NOAA-20 (JPSS-1, activo NRT, 31,253 eventos 2018-04 a 2026-07)",
                     "sha256": _sha256(noaa20_path),
                 },
                 "modelo_serializado_noaa20": {

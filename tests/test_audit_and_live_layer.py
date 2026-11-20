@@ -161,6 +161,68 @@ class TestZyxilonAuditInvariants(unittest.TestCase):
         self.assertGreaterEqual(ignis["roc_auc"], 0.823)
         self.assertGreaterEqual(ignis["pr_auc"], 0.131)
         self.assertLess(ignis["brier"], h24["Climatología celda×mes"]["brier"])
+        self.assertIn("alert_policy_tiers", ignis)
+        tiers_by_name = {t["tier"]: t for t in ignis["alert_policy_tiers"]}
+        self.assertIn("vigilancia_5pct", tiers_by_name)
+        self.assertIn("advertencia_10pct", tiers_by_name)
+        self.assertIn("critico_20pct", tiers_by_name)
+        self.assertGreater(tiers_by_name["critico_20pct"]["precision"], tiers_by_name["vigilancia_5pct"]["precision"])
+
+        # Observable NOAA-20 archive must run through July 2026 matching S-NPP & NASA POWER
+        n20_blk = m["objetivo_observable_noaa20"]
+        self.assertEqual(n20_blk["periodo_panel"][1], "2026-07-31")
+        self.assertGreater(n20_blk["n_test_filas"], 400000)
+
+    def test_7_fastapi_http_endpoints_offline(self) -> None:
+        import asyncio
+        import server
+
+        fake_data = {
+            "total_m": 1200,
+            "total_v": 8500,
+            "total_v20": 4300,
+            "total_v21": 4200,
+            "total_vsnpp": 0,
+            "vsnpp_status": {"state": "retired_nrt", "label": "NRT EOL", "note": "Retired Nov 2, 2026"},
+            "total_focos": 9700,
+            "drawn_focos": 3000,
+            "drawn_m": 1000,
+            "drawn_v20": 1000,
+            "drawn_v21": 1000,
+            "drawn_vsnpp": 0,
+            "max_frp": 412.5,
+            "sum_gw": 142.8,
+            "modis_records": [],
+            "v20_records": [],
+            "v21_records": [],
+            "vsnpp_records": [],
+            "pred_records": [],
+            "prediction_status": "Global & DR: 0 mock cells",
+            "prov_data": {},
+            "dom_outline": [],
+        }
+        with mock.patch("map_service.build_map_data", return_value=fake_data):
+            r_health = asyncio.run(server.get_health())
+            self.assertEqual(r_health.status_code, 200)
+            self.assertEqual(json.loads(r_health.body)["status"], "ok")
+
+            r_focos = asyncio.run(server.get_api_focos())
+            self.assertEqual(r_focos.status_code, 200)
+            jf = json.loads(r_focos.body)
+            self.assertEqual(jf["total_focos"], 9700)
+            self.assertEqual(jf["drawn_focos"], 3000)
+
+            r_clim = asyncio.run(server.get_api_climatology())
+            self.assertEqual(r_clim.status_code, 200)
+            jc = json.loads(r_clim.body)
+            self.assertEqual(jc["status"], "ok")
+            self.assertIn("pi80_band", jc)
+
+            map_service._MAP_CACHE["html"] = None
+            map_service._MAP_CACHE["html_timestamp"] = 0
+            r_vn = asyncio.run(server.get_mapa(corridor="valle_nuevo", lat=None, lon=None, zoom=None))
+            self.assertEqual(r_vn.status_code, 200)
+            self.assertIn("setView([18.7842, -70.6415], 10)", r_vn.body.decode("utf-8"))
 
 
 if __name__ == "__main__":

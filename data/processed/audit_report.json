@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-20T06:17:54+00:00",
+  "generated_utc": "2026-11-20T08:16:46+00:00",
   "checks": {
     "daily_source_hash_incendios": {
       "ok": true,
@@ -18,7 +18,7 @@
         48,
         72
       ],
-      "artifact_sha256": "04a2ff1994df870179d3b02b7723120a059c6c4f9d8200fde5af41441b8032a5",
+      "artifact_sha256": "85ae8d19ae33c4cdfc3096ebbfdff4ecc531294c7c89143f134366cb5501c8e9",
       "artifact_sha256_verified": true,
       "sklearn_runtime_version": "1.9.1"
     },
@@ -82,47 +82,47 @@
     "dr_daily_observable_noaa20_target": {
       "ok": true,
       "split": {
-        "train": "2018–2022",
-        "calibracion": "2023",
-        "prueba": "2024–2025"
+        "train": "2012–2017 S-NPP + 2018–2022 NOAA-20 (1 satélite/día)",
+        "calibracion": "2023 (100% NOAA-20)",
+        "prueba": "2024–2026 (100% NOAA-20)"
       },
-      "test_rows": 243660,
+      "test_rows": 438495,
       "artifact_sha256_verified": true,
       "horizons": {
         "+24h": {
-          "roc_auc": 0.8181,
-          "pr_auc": 0.133,
-          "brier": 0.01827,
-          "clim_brier": 0.01863,
-          "brier_skill_vs_cell_month_pct": 1.93,
-          "pss": 0.4895,
-          "far": 0.9371,
-          "fnr": 0.2989,
-          "ece": 0.00302,
+          "roc_auc": 0.813,
+          "pr_auc": 0.1147,
+          "brier": 0.01704,
+          "clim_brier": 0.01748,
+          "brier_skill_vs_cell_month_pct": 2.52,
+          "pss": 0.4494,
+          "far": 0.9369,
+          "fnr": 0.3778,
+          "ece": 0.0015,
           "ok": true
         },
         "+48h": {
-          "roc_auc": 0.8078,
-          "pr_auc": 0.1995,
-          "brier": 0.03245,
-          "clim_brier": 0.03326,
-          "brier_skill_vs_cell_month_pct": 2.44,
-          "pss": 0.4662,
-          "far": 0.8877,
-          "fnr": 0.331,
-          "ece": 0.00699,
+          "roc_auc": 0.8023,
+          "pr_auc": 0.173,
+          "brier": 0.0306,
+          "clim_brier": 0.03163,
+          "brier_skill_vs_cell_month_pct": 3.26,
+          "pss": 0.4357,
+          "far": 0.8933,
+          "fnr": 0.3796,
+          "ece": 0.00363,
           "ok": true
         },
         "+72h": {
-          "roc_auc": 0.8031,
-          "pr_auc": 0.2469,
-          "brier": 0.04453,
-          "clim_brier": 0.04584,
-          "brier_skill_vs_cell_month_pct": 2.86,
-          "pss": 0.4541,
-          "far": 0.8503,
-          "fnr": 0.3369,
-          "ece": 0.00848,
+          "roc_auc": 0.7955,
+          "pr_auc": 0.2167,
+          "brier": 0.0424,
+          "clim_brier": 0.04401,
+          "brier_skill_vs_cell_month_pct": 3.66,
+          "pss": 0.4231,
+          "far": 0.8578,
+          "fnr": 0.3857,
+          "ece": 0.00579,
           "ok": true
         }
       }
@@ -170,7 +170,7 @@
       "frp_double_nested_oos_pi80_coverage_pct": 78.2,
       "h3_res7_double_nested_oos_pi80_coverage_pct": 78.7,
       "strict_noncircular_oos_pi80_coverage_pct": 78.7,
-      "dr_daily_24h_batch_latency_ms": 8.82
+      "dr_daily_24h_batch_latency_ms": 9.9
     },
     "dem_source_hashes_and_coverage": {
       "ok": true,
@@ -288,16 +288,16 @@
       },
       "forecast_run_valid_times": {
         "24": {
-          "18.48,-69.90": "2026-11-21T04:30:00+00:00",
-          "-15.78,-47.93": "2026-11-21T04:30:00+00:00"
+          "18.48,-69.90": "2026-11-21T07:30:00+00:00",
+          "-15.78,-47.93": "2026-11-21T07:30:00+00:00"
         },
         "48": {
-          "18.48,-69.90": "2026-11-22T04:30:00+00:00",
-          "-15.78,-47.93": "2026-11-22T04:30:00+00:00"
+          "18.48,-69.90": "2026-11-22T07:30:00+00:00",
+          "-15.78,-47.93": "2026-11-22T07:30:00+00:00"
         },
         "72": {
-          "18.48,-69.90": "2026-11-23T04:30:00+00:00",
-          "-15.78,-47.93": "2026-11-23T04:30:00+00:00"
+          "18.48,-69.90": "2026-11-23T07:30:00+00:00",
+          "-15.78,-47.93": "2026-11-23T07:30:00+00:00"
         }
       }
     },
@@ -310,19 +310,19 @@
     },
     "prospective_forecast_ledger_chain": {
       "ok": true,
-      "entries": 1,
+      "entries": 2,
       "latest_utc_date": "2026-11-20",
-      "latest_entry_sha256": "1c1a82f44653feb295c94ad15643b30a1cf35ba6e0b062a66c2f82cbee5a3c93",
-      "latest_model_sha256": "0ef78a2c493cdf4e3b3de87ad1db665434f6afefe264230c7dfcb767e6aca382"
+      "latest_entry_sha256": "7e92e09cbbb717bd2c8c3e560f4d5ed7f14598fa53d470d68d129a9b27f881a9",
+      "latest_model_sha256": "f0111dc74ad433910d66992ad02a817ffa6ea74d99ed691a6cdccbcfef4c871f"
     }
   },
   "data_availability": {
     "source": "NASA FIRMS VIIRS 375m 7d (S-NPP + NOAA-20 + NOAA-21)",
     "snpp_7d_status": "vacio",
-    "noaa20_7d_rows": 343712,
-    "noaa21_7d_rows": 336298,
+    "noaa20_7d_rows": 300485,
+    "noaa21_7d_rows": 295519,
     "status": "ok",
-    "rows": 680010,
+    "rows": 596004,
     "daily_rd_probability_available": true,
     "message": "Constelación VIIRS 375m activa (NOAA-20/21 cubren el feed S-NPP vacío)"
   },
