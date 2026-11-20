@@ -1425,18 +1425,19 @@
         // Escala en Bottom-Left (Exacto a NASA FIRMS)
         L.control.scale({ position: 'bottomleft', metric: true, imperial: true }).addTo(map);
 
-        // Capas Base Satelitales (con clave API CARTO oficial)
+        // Capas Base Satelitales (CARTO basemaps públicos; clave API opcional por entorno)
         var cartoKey = "__CARTO_KEY__";
+        var cartoQs = cartoKey ? ('?key=' + encodeURIComponent(cartoKey)) : '';
         var esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19, updateWhenIdle: false, keepBuffer: 6, noWrap: false, attribution: 'Esri Satellite | NASA FIRMS'
         });
-        var cartoDark = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=' + cartoKey, {
+        var cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' + cartoQs, {
             maxZoom: 19, updateWhenIdle: false, keepBuffer: 6, noWrap: false, attribution: '© CARTO Dark Matter'
         });
-        var cartoLight = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key=' + cartoKey, {
+        var cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png' + cartoQs, {
             maxZoom: 19, updateWhenIdle: false, keepBuffer: 6, noWrap: false, attribution: '© CARTO Positron'
         });
-        var cartoVoyager = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=' + cartoKey, {
+        var cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png' + cartoQs, {
             maxZoom: 19, updateWhenIdle: false, keepBuffer: 6, noWrap: false, attribution: '© CARTO Voyager'
         });
 

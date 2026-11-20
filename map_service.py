@@ -225,7 +225,8 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
             audit_summary = {}
 
     payload = {
-        "h3_resolution": 7,
+        "grid_deg": float(config.GRID_DEG),
+        "active_cells": int(unique_pts.shape[0]),
         "years_span": [int(cal["year"].min()), int(cal["year"].max())],
         "peak_window": {"months": ["March", "April"], "share_pct": round(float(pk_share) * 100.0, 1)},
         "monthly_medians": monthly_medians,
@@ -706,7 +707,8 @@ def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl:
     _MAP_CACHE["data_json"] = data
     clim_full = build_climatology_data()
     clim_map_payload = {
-        "h3_resolution": clim_full["h3_resolution"],
+        "grid_deg": clim_full["grid_deg"],
+        "active_cells": clim_full["active_cells"],
         "years_span": clim_full["years_span"],
         "peak_window": clim_full["peak_window"],
         "monthly_medians": clim_full["monthly_medians"],
@@ -746,7 +748,7 @@ def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl:
         .replace("__CLIMATOLOGY_DATA__", json.dumps(clim_map_payload, ensure_ascii=False))
         .replace("__PROVINCES_DATA__", json.dumps(data["prov_data"], ensure_ascii=False))
         .replace("__DOM_OUTLINE__", json.dumps(data["dom_outline"]))
-        .replace("__CARTO_KEY__", getattr(config, "CARTO_API_KEY", "cb1_5972_1_036a384acf206236f237e040"))
+        .replace("__CARTO_KEY__", getattr(config, "CARTO_API_KEY", ""))
     )
 
     _MAP_CACHE["html"] = html

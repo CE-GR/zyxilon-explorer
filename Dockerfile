@@ -30,8 +30,12 @@ RUN pip install --no-cache-dir -U pip setuptools wheel && \
 COPY config.py server.py map_service.py ./
 COPY pipeline/ ./pipeline/
 COPY static/ ./static/
-COPY templates/ ./templates/
 COPY data/ ./data/
+
+# Ejecutar con usuario no-root (seguridad de contenedor)
+RUN useradd --create-home --uid 10001 appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
 # Exponer el puerto del servidor HTTP
 EXPOSE 8080

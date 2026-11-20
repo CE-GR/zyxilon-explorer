@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-20T02:03:53+00:00",
+  "generated_utc": "2026-11-20T03:17:47+00:00",
   "checks": {
     "daily_source_hash_incendios": {
       "ok": true,
@@ -28,6 +28,38 @@
       },
       "cells": 465,
       "test_rows": 608220
+    },
+    "dr_daily_model_beats_cell_month_climatology": {
+      "ok": true,
+      "model_class": "HistGradientBoostingClassifier + IsotonicRegression",
+      "grid_degrees": 0.1,
+      "n_features": 22,
+      "horizons": {
+        "+24h": {
+          "roc_auc": 0.8183,
+          "clim_roc_auc": 0.7792,
+          "brier": 0.01788,
+          "clim_brier": 0.01829,
+          "brier_skill_vs_cell_month_pct": 2.24,
+          "ok": true
+        },
+        "+48h": {
+          "roc_auc": 0.8102,
+          "clim_roc_auc": 0.7757,
+          "brier": 0.03175,
+          "clim_brier": 0.03267,
+          "brier_skill_vs_cell_month_pct": 2.82,
+          "ok": true
+        },
+        "+72h": {
+          "roc_auc": 0.8045,
+          "clim_roc_auc": 0.774,
+          "brier": 0.04354,
+          "clim_brier": 0.04501,
+          "brier_skill_vs_cell_month_pct": 3.27,
+          "ok": true
+        }
+      }
     },
     "nested_loyo_recomputed": {
       "ok": true,
@@ -59,8 +91,17 @@
         2026
       ]
     },
+    "harmonization_jumps_and_hierarchical_recomputed": {
+      "ok": true,
+      "raw_count_jump": 4.52,
+      "harmonized_jump": 0.91,
+      "raw_frp_jump": 1.2,
+      "hierarchical_annual_median_err_pct": 2.58,
+      "pi80_calibrated_coverage_pct": 79.3
+    },
     "dem_source_hashes_and_coverage": {
       "ok": true,
+      "raw_files_present": true,
       "source": "AWS Open Data elevation-tiles-prod Terrarium",
       "tiles_verified": 186,
       "tiles_expected": 186,
@@ -70,6 +111,7 @@
     },
     "global_nasa_model_artifact_and_split": {
       "ok": true,
+      "raw_files_present": true,
       "source_sha256_verified": true,
       "zenodo_md5_verified": true,
       "locked_test_years": [
@@ -153,45 +195,6 @@
       "mae_km_day": 0.4385631063214287,
       "baseline_mae_km_day": 0.46190059111057247,
       "mae_skill": 0.05052490782276797
-    },
-    "nasa_geos_fp_live_wind": {
-      "ok": true,
-      "source": "NASA GEOS-FP (experimental forecast)",
-      "locations_by_horizon": {
-        "24": [
-          "18.48,-69.90",
-          "-15.78,-47.93"
-        ],
-        "48": [
-          "18.48,-69.90",
-          "-15.78,-47.93"
-        ],
-        "72": [
-          "18.48,-69.90",
-          "-15.78,-47.93"
-        ]
-      },
-      "forecast_run_valid_times": {
-        "24": {
-          "18.48,-69.90": "2026-11-21T01:30:00+00:00",
-          "-15.78,-47.93": "2026-11-21T01:30:00+00:00"
-        },
-        "48": {
-          "18.48,-69.90": "2026-11-22T01:30:00+00:00",
-          "-15.78,-47.93": "2026-11-22T01:30:00+00:00"
-        },
-        "72": {
-          "18.48,-69.90": "2026-11-23T01:30:00+00:00",
-          "-15.78,-47.93": "2026-11-23T01:30:00+00:00"
-        }
-      }
-    },
-    "rd_live_weather_coverage": {
-      "ok": true,
-      "cells_with_daily_weather": 465,
-      "cells_expected": 465,
-      "hourly_nodes": 34,
-      "hourly_rows": 2482
     }
   },
   "data_availability": {

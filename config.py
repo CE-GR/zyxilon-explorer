@@ -85,7 +85,9 @@ def map_key() -> str:
             or (FIRMS_MAP_KEY or "").strip())
 
 # --- Claves y Proveedores de Mapas Base ---
-CARTO_API_KEY = os.environ.get("CARTO_API_KEY", "").strip() or "cb1_5972_1_036a384acf206236f237e040"
-CARTO_VOYAGER_URL = f"https://basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}.png?key={CARTO_API_KEY}"
-CARTO_DARK_URL = f"https://basemaps.cartocdn.com/rastertiles/dark_all/{{z}}/{{x}}/{{y}}.png?key={CARTO_API_KEY}"
-CARTO_LIGHT_URL = f"https://basemaps.cartocdn.com/rastertiles/light_all/{{z}}/{{x}}/{{y}}.png?key={CARTO_API_KEY}"
+# CARTO basemaps work publicly without a key; optional CARTO_API_KEY env var appends ?key=.
+CARTO_API_KEY = os.environ.get("CARTO_API_KEY", "").strip()
+_CARTO_QS = f"?key={CARTO_API_KEY}" if CARTO_API_KEY else ""
+CARTO_VOYAGER_URL = f"https://{{s}}.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}.png{_CARTO_QS}"
+CARTO_DARK_URL = f"https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}.png{_CARTO_QS}"
+CARTO_LIGHT_URL = f"https://{{s}}.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}.png{_CARTO_QS}"

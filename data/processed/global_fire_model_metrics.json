@@ -1,7 +1,7 @@
 {
   "generated_utc": "2026-11-15T09:46:16.617401+00:00",
   "source": "NASA Global Fire Atlas (Zenodo record 17669692), SHP_ignitions.zip",
-  "source_file": "/home/brau/Desktop/nasa/fuegord/data/raw/global_fire_atlas/SHP_ignitions.zip",
+  "source_file": "data/raw/global_fire_atlas/SHP_ignitions.zip",
   "source_sha256": "77e6b56ae459678129a88d8c64fd93ccad3653c201bf36bc0136a6daabb414c0",
   "source_md5_zenodo": "f80b45adbfd8ee1737d2a16cee8bc7ea",
   "dataset_period": "2002–febrero 2026 (2026 parcial excluido)",

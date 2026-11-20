@@ -38,12 +38,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS permisivo para APIs
+# CORS público de solo lectura (sin credenciales con wildcard)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -142,8 +142,9 @@ async def get_api_provincias():
         from pipeline import mapa_live as ml
         prov_data = ml._provincias_por_nombre()
         return JSONResponse(content={"status": "ok", "provincias": prov_data})
-    except Exception as e:
-        return JSONResponse(content={"status": "error", "mensaje": str(e)}, status_code=500)
+    except Exception as exc:
+        print(f"[Zyxilon Explorer] Error en /api/provincias: {type(exc).__name__}: {exc}")
+        return JSONResponse(content={"status": "error", "message": "Internal server error"}, status_code=500)
 
 
 @app.get("/api/climatology", response_class=JSONResponse)
@@ -152,8 +153,9 @@ async def get_api_climatology():
     try:
         clim = map_service.build_climatology_data()
         return JSONResponse(content={"status": "ok", **clim})
-    except Exception as e:
-        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+    except Exception as exc:
+        print(f"[Zyxilon Explorer] Error en /api/climatology: {type(exc).__name__}: {exc}")
+        return JSONResponse(content={"status": "error", "message": "Internal server error"}, status_code=500)
 
 
 @app.get("/api/health", response_class=JSONResponse)

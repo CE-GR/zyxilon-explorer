@@ -12,8 +12,8 @@ services:
     environment:
       - PORT=8080
       - PYTHONUNBUFFERED=1
-    env_file:
-      - .env
+      - FIRMS_MAP_KEY=${FIRMS_MAP_KEY:-}
+      - CARTO_API_KEY=${CARTO_API_KEY:-}
     deploy:
       resources:
         limits:
