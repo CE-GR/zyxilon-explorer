@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.env
+*.zip
+*.rar
+*.bak
+data/raw/
+data/cache/
+release_open_science/

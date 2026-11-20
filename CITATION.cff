@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use Zyxilon Explorer // IGNIS code or processed harmonization datasets, please cite this work using the metadata below."
+title: "Zyxilon Explorer // IGNIS: MODIS-VIIRS Harmonization, 80% Out-of-Sample Prediction Intervals & +24h/+48h/+72h Wildfire Forecasting"
+type: software
+version: "1.0.0"
+date-released: "2026-11-19"
+url: "https://zyxilon.proyectxor.site/"
+repository-code: "https://github.com/CE-GR/zyxilon-explorer"
+license: MIT
+license-url: "https://opensource.org/licenses/MIT"
+authors:
+  - family-names: "Guillermo"
+    given-names: "Carlos"
+  - name: "Zyxilon Explorer // IGNIS Team"
+abstract: >-
+  Open-science Earth observation platform built for the 2026 NASA International Space Apps
+  Challenge (Harmonization of MODIS and VIIRS Hot Spots). Combines 27 years (2000-2026)
+  of Uber H3 Resolution 7 harmonized fire-hotspot climatology, asymmetric 80% out-of-sample
+  LOYO prediction intervals for both hotspot counts and Fire Radiative Power (MW),
+  hierarchical Empirical-Bayes spatial shrinkage across 32 official ADM1 provinces, a
+  100-month Suomi-NPP to NOAA-20/21 continuity bridge, and a live FastAPI cartographic
+  cockpit with calibrated +24h/+48h/+72h wildfire forecasts. Code is licensed under MIT;
+  processed datasets under data/processed/ are licensed under CC BY 4.0.
+keywords:
+  - MODIS
+  - VIIRS
+  - NASA FIRMS
+  - wildfire harmonization
+  - Uber H3
+  - leave-one-year-out cross-validation
+  - prediction intervals
+  - Fire Radiative Power
+  - Dominican Republic
+  - NASA Space Apps Challenge

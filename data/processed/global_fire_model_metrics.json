@@ -1,0 +1,127 @@
+{
+  "generated_utc": "2026-11-15T09:46:16.617401+00:00",
+  "source": "NASA Global Fire Atlas (Zenodo record 17669692), SHP_ignitions.zip",
+  "source_file": "/home/brau/Desktop/nasa/fuegord/data/raw/global_fire_atlas/SHP_ignitions.zip",
+  "source_sha256": "77e6b56ae459678129a88d8c64fd93ccad3653c201bf36bc0136a6daabb414c0",
+  "source_md5_zenodo": "f80b45adbfd8ee1737d2a16cee8bc7ea",
+  "dataset_period": "2002–febrero 2026 (2026 parcial excluido)",
+  "split": {
+    "train_for_calibration": [
+      2002,
+      2003,
+      2004,
+      2005,
+      2006,
+      2007,
+      2008,
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019
+    ],
+    "calibration": [
+      2020,
+      2021
+    ],
+    "locked_test": [
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "live_refit": [
+      2002,
+      2025
+    ]
+  },
+  "probability_target": "GFA fire ignition >=0.21 km² in 1° cell",
+  "grid_degrees": 1.0,
+  "probability_calibration_alpha_days": 30.0,
+  "calibration_2020_2021_brier_24h": 0.027029516676409827,
+  "probability_calibration_2020_2021": {
+    "years": [
+      2020,
+      2021
+    ],
+    "brier": 0.027029516676409827,
+    "global_month_baseline_brier": 0.04473474917126824,
+    "brier_skill_vs_global_month": 0.3957825364589267,
+    "roc_auc": 0.9457334442807956
+  },
+  "isotonic_calibration_fitted_on_years": [
+    2020,
+    2021
+  ],
+  "ignition_test_metrics": {
+    "+24h": {
+      "roc_auc": 0.9413426718041957,
+      "pr_auc": 0.5735833117424111,
+      "brier": 0.02648021121457501,
+      "brier_global_month_baseline": 0.041992190981669474,
+      "brier_skill_vs_global_month": 0.3694015340582202,
+      "base_rate": 0.04392315482609177,
+      "positive_forecast_windows": 857004,
+      "cell_day_forecast_windows": 19511440,
+      "historically_active_1deg_cells": 13364
+    },
+    "+48h": {
+      "roc_auc": 0.9367267416753513,
+      "pr_auc": 0.6494798836054076,
+      "brier": 0.03463125591646473,
+      "brier_global_month_baseline": 0.06084529267155742,
+      "brier_skill_vs_global_month": 0.4308309748232444,
+      "base_rate": 0.06382906703204973,
+      "positive_forecast_windows": 1244544,
+      "cell_day_forecast_windows": 19498076,
+      "historically_active_1deg_cells": 13364
+    },
+    "+72h": {
+      "roc_auc": 0.9323302355331428,
+      "pr_auc": 0.6705759517147634,
+      "brier": 0.04025436957371271,
+      "brier_global_month_baseline": 0.07515059051931379,
+      "brier_skill_vs_global_month": 0.46435058865748646,
+      "base_rate": 0.07671994330734783,
+      "positive_forecast_windows": 1494866,
+      "cell_day_forecast_windows": 19484712,
+      "historically_active_1deg_cells": 13364
+    }
+  },
+  "spread_test_metrics": {
+    "target": "velocidad media por incendio GFA (km/día); celdas 1° × mes",
+    "test_years": [
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "n_fires": 3201278,
+    "mae_km_day": 0.4385631063214287,
+    "rmse_km_day": 0.7214408824659064,
+    "baseline_month_mae_km_day": 0.46190059111057247,
+    "mae_skill_vs_month_baseline": 0.05052490782276797,
+    "direction_sector_accuracy": 0.27601203457552653,
+    "direction_month_baseline_accuracy": 0.27503992953299694,
+    "n_direction_labels": 1884570
+  },
+  "validations": {
+    "source_checksum_matches_zenodo": true,
+    "test_years_not_used_for_probability_fit": true,
+    "test_years_not_used_for_speed_fit": true,
+    "test_cells_conditioned_on_train_period": true,
+    "fitted_daily_probabilities_bounded_0_1": true
+  },
+  "scope": [
+    "Probabilidad calibrada para fuegos mapeados por GFA, no todos los focos FIRMS.",
+    "La cobertura espacial probabilística se limita a celdas 1° con incendios GFA durante el entrenamiento.",
+    "La probabilidad global usa ubicación y mes; no incluye pronóstico meteorológico.",
+    "La velocidad es media histórica local/mes; el rumbo GEOS-FP es un escenario viento-dirigido, no un perímetro validado."
+  ]
+}

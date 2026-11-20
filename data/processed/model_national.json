@@ -1,0 +1,159 @@
+{
+  "method": "ensamble_hibrido_loyo",
+  "x": "viirs_px",
+  "k": {
+    "todas": 0.20006924094612807
+  },
+  "phys_params": {
+    "w_px": 0.96,
+    "w_ev": 0.0,
+    "w_frp": 0.04,
+    "w_seas": 0.16,
+    "power_alpha": 0.99,
+    "exp_c": -0.01,
+    "blend_nl": 0.55,
+    "k_px": 0.20006924094612807,
+    "k_ev": 0.29017448846009003,
+    "k_frp": 0.029385995060806455,
+    "c_ref": 1.450370317235443,
+    "med_ref": 61.221187729515194,
+    "seas_mult": {
+      "1": 1.0100143686332799,
+      "2": 1.0068516464351662,
+      "3": 0.9946448116664695,
+      "4": 0.9903674893788035,
+      "5": 1.0184139898885354,
+      "6": 1.0338635357610535,
+      "7": 1.0140006312811434,
+      "8": 0.9879105831499749,
+      "9": 1.0005322319169732,
+      "10": 0.9747805606716706,
+      "11": 0.9935666286287856,
+      "12": 1.0087913767841905
+    },
+    "cal": 1.0035203064416598
+  },
+  "nombre": "Ensamble Físico-Radiométrico H3 (VIIRS 375m ↔ MODIS 1km)",
+  "banda": {
+    "mensual": [
+      0.7403229516523265,
+      1.3187183163129297
+    ],
+    "anual": [
+      0.8787147138767001,
+      1.119799592663343
+    ]
+  },
+  "metricas": [
+    {
+      "metodo": "ensamble_hibrido_loyo",
+      "nombre": "Ensamble Físico-Radiométrico H3 (VIIRS 375m ↔ MODIS 1km)",
+      "mae_mensual": 15.61968958697628,
+      "error_anual_pct": 6.290821673186664,
+      "sesgo_pct": 0.007980681475461764,
+      "corr_mensual": 0.9637990850556418
+    },
+    {
+      "metodo": "fisico_radiometrico",
+      "nombre": "Físico-Radiométrico Multivariable (Píxeles + FRP + Clúster + Estacionalidad)",
+      "mae_mensual": 15.649625133602703,
+      "error_anual_pct": 6.819508637870951,
+      "sesgo_pct": 0.038458759481354396,
+      "corr_mensual": 0.9629728542702555
+    },
+    {
+      "metodo": "razon_px",
+      "nombre": "Razón simple, píxeles VIIRS",
+      "mae_mensual": 15.807387443556687,
+      "error_anual_pct": 5.91625459918099,
+      "sesgo_pct": -0.023470718946807426,
+      "corr_mensual": 0.9636804980674749
+    },
+    {
+      "metodo": "razon_ev",
+      "nombre": "Razón simple, eventos VIIRS",
+      "mae_mensual": 19.22146423830552,
+      "error_anual_pct": 6.061039273548915,
+      "sesgo_pct": -0.0651555073542519,
+      "corr_mensual": 0.9433871651099379
+    },
+    {
+      "metodo": "loglineal_ev_temporada",
+      "nombre": "Log-lineal por temporada, eventos VIIRS",
+      "mae_mensual": 19.51172958042236,
+      "error_anual_pct": 7.147224184058963,
+      "sesgo_pct": -0.8212418844228373,
+      "corr_mensual": 0.9411301260910033
+    },
+    {
+      "metodo": "razon_ev_temporada",
+      "nombre": "Razón por temporada, eventos VIIRS",
+      "mae_mensual": 19.523940970802578,
+      "error_anual_pct": 6.05044824481595,
+      "sesgo_pct": -0.1452826519165206,
+      "corr_mensual": 0.9409927896666739
+    }
+  ],
+  "solapamiento": [
+    "2012-02-01",
+    "2026-07-01"
+  ],
+  "n_modis_solapamiento": 16181,
+  "frp": {
+    "method": "loglineal_frp_temporada",
+    "x": "viirs_ev_frp",
+    "params": {
+      "seca": {
+        "a": -0.7060172584366433,
+        "b": 1.0274315191415475,
+        "smear": 1.1503678103129558
+      },
+      "lluviosa": {
+        "a": -0.8512238246864986,
+        "b": 1.0597116901297217,
+        "smear": 1.0840470474151962
+      }
+    },
+    "nombre": "Log-lineal de FRP por temporada (Duan)",
+    "metricas": [
+      {
+        "metodo": "loglineal_frp_temporada",
+        "nombre": "Log-lineal de FRP por temporada (Duan)",
+        "mae_mensual": 545.388340061098,
+        "error_anual_pct": 9.009604713917515,
+        "corr_mensual": 0.9516117105423573
+      },
+      {
+        "metodo": "razon_frp",
+        "nombre": "Razón simple de FRP (eventos VIIRS)",
+        "mae_mensual": 548.0761135748602,
+        "error_anual_pct": 9.00839021046452,
+        "corr_mensual": 0.9510900853268672
+      },
+      {
+        "metodo": "fisico_frp_multivar",
+        "nombre": "Calibración Radiométrica Multivariable de FRP (Energía + Densidad + Ciclo)",
+        "mae_mensual": 549.8898437436369,
+        "error_anual_pct": 8.813811735419899,
+        "corr_mensual": 0.9502102356522403
+      },
+      {
+        "metodo": "razon_frp_temporada",
+        "nombre": "Razón de FRP por temporada",
+        "mae_mensual": 553.2939881571699,
+        "error_anual_pct": 9.191799155735172,
+        "corr_mensual": 0.9495431014223172
+      }
+    ],
+    "banda": {
+      "mensual": [
+        0.5752195293575473,
+        1.4640157320520315
+      ],
+      "anual": [
+        0.8893671531908774,
+        1.1521140042913984
+      ]
+    }
+  }
+}

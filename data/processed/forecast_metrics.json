@@ -1,0 +1,158 @@
+{
+  "objetivo": "Probabilidad de foco en el PRÓXIMO mes por celda (~11 km) — pronóstico t+1",
+  "fuente_datos": "NASA FIRMS armonizado (MODIS + VIIRS S-NPP), 2000–2026",
+  "clima_real_nasa_power": true,
+  "campeon_usa_clima": true,
+  "sin_meteorologia_sintetica": true,
+  "model_comparison": [
+    {
+      "modelo": "Climatología (línea base)",
+      "roc_auc": 0.7484,
+      "pr_auc": 0.5738,
+      "brier_score": 0.1865,
+      "brier_skill_vs_clim": 0.0,
+      "f1_score": 0.3685
+    },
+    {
+      "modelo": "Persistencia (naive)",
+      "roc_auc": 0.6114,
+      "pr_auc": 0.384,
+      "brier_score": 0.2666,
+      "brier_skill_vs_clim": -0.4301,
+      "f1_score": 0.4003
+    },
+    {
+      "modelo": "Regresión Logística (L2)",
+      "roc_auc": 0.7826,
+      "pr_auc": 0.634,
+      "brier_score": 0.3002,
+      "brier_skill_vs_clim": -0.6102,
+      "f1_score": 0.5492
+    },
+    {
+      "modelo": "Gradient Boosting · solo FIRMS",
+      "roc_auc": 0.7919,
+      "pr_auc": 0.6509,
+      "brier_score": 0.1634,
+      "brier_skill_vs_clim": 0.1235,
+      "f1_score": 0.5443
+    },
+    {
+      "modelo": "Gradient Boosting · FIRMS + NASA POWER (Calibrado)",
+      "roc_auc": 0.797,
+      "pr_auc": 0.6526,
+      "brier_score": 0.1624,
+      "brier_skill_vs_clim": 0.1291,
+      "f1_score": 0.5404
+    }
+  ],
+  "feature_importances": {
+    "cell_base_rate": 0.0351,
+    "rate_12m": 0.0166,
+    "neighbor_rate": 0.0151,
+    "seasonal_clim": 0.0092,
+    "doy_sin": 0.0085,
+    "month_num": 0.0068,
+    "seas_x_fwi": 0.0067,
+    "doy_cos": 0.0063,
+    "cell_lon": 0.0053,
+    "cell_lat": 0.005,
+    "wx_t2m_mean": 0.0026,
+    "wx_wind_mean": 0.0019,
+    "wx_isi_mean": 0.0016,
+    "wx_precip_sum": 0.0014,
+    "wx_ffmc_mean": 0.001,
+    "wx_rh_mean": 0.0007,
+    "wx_rh_min": 0.0007,
+    "is_dry_season": 0.0004,
+    "wx_vpd_3m": 0.0004,
+    "rate_6m": 0.0003,
+    "recent_frp_log": 0.0003,
+    "wx_vpd_kpa": 0.0003,
+    "months_since_fire": 0.0002,
+    "fire_x_vpd": 0.0002,
+    "lag1_fire": 0.0001,
+    "wx_fwi_max": 0.0001,
+    "year_idx": 0.0,
+    "rate_3m": -0.0,
+    "wx_diurnal_range": -0.0001,
+    "wx_fwi_mean": -0.0003,
+    "wx_fwi_3m": -0.0003,
+    "wx_t2m_max": -0.0005,
+    "wx_dry_days": -0.0011,
+    "wx_bui_mean": -0.0014
+  },
+  "calibration_curve": [
+    {
+      "bin": "0.0-0.1",
+      "pred_mean": 0.055,
+      "obs_freq": 0.045,
+      "n": 2767
+    },
+    {
+      "bin": "0.1-0.2",
+      "pred_mean": 0.151,
+      "obs_freq": 0.126,
+      "n": 4220
+    },
+    {
+      "bin": "0.2-0.3",
+      "pred_mean": 0.248,
+      "obs_freq": 0.221,
+      "n": 3819
+    },
+    {
+      "bin": "0.3-0.4",
+      "pred_mean": 0.347,
+      "obs_freq": 0.325,
+      "n": 2856
+    },
+    {
+      "bin": "0.4-0.5",
+      "pred_mean": 0.448,
+      "obs_freq": 0.461,
+      "n": 2190
+    },
+    {
+      "bin": "0.5-0.6",
+      "pred_mean": 0.547,
+      "obs_freq": 0.546,
+      "n": 1697
+    },
+    {
+      "bin": "0.6-0.7",
+      "pred_mean": 0.645,
+      "obs_freq": 0.688,
+      "n": 1109
+    },
+    {
+      "bin": "0.7-0.8",
+      "pred_mean": 0.749,
+      "obs_freq": 0.79,
+      "n": 643
+    },
+    {
+      "bin": "0.8-0.9",
+      "pred_mean": 0.85,
+      "obs_freq": 0.877,
+      "n": 620
+    },
+    {
+      "bin": "0.9-1.0",
+      "pred_mean": 0.914,
+      "obs_freq": 0.878,
+      "n": 74
+    }
+  ],
+  "train_period": "2001 - 2022 (calibrado en 2019-2022)",
+  "test_period": "2023 - 2026 (años nunca vistos)",
+  "total_observations": 143685,
+  "test_observations": 19995,
+  "test_fires_next_month": 6246,
+  "base_rate_test": 0.3124,
+  "champion": "Gradient Boosting · FIRMS + NASA POWER (Calibrado)",
+  "champion_roc_auc": 0.797,
+  "champion_pr_auc": 0.6526,
+  "champion_brier_skill": 0.1291,
+  "last_data_month": "2026-08-01"
+}

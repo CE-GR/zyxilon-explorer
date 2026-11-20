@@ -1,0 +1,145 @@
+{
+  "objetivo": "P(≥1 evento VIIRS S-NPP en celda 0.1° en (t, t+h])",
+  "split": {
+    "train": "2012–2021",
+    "calibracion": "2022",
+    "prueba": "2023–2026"
+  },
+  "periodo_panel": [
+    "2012-01-20",
+    "2026-07-31"
+  ],
+  "fuentes": {
+    "incendios": {
+      "archivo": "data/processed/viirs_events.parquet",
+      "sensor": "VIIRS Suomi-NPP",
+      "fecha_ultima": "2026-07-31",
+      "sha256": "f1c6e83832d231188417b58b4a3e5bb528cf89ef39457897f5f71165ec3e3fcb"
+    },
+    "meteorologia": {
+      "archivo": "data/processed/power_daily_nodes.parquet",
+      "proveedor": "NASA POWER diario",
+      "sha256": "af693ff6436abbe87b5d9488289bc209e23f420eccc60c0689bc933d63d1ea61"
+    },
+    "features_clima": [
+      "fwi",
+      "ffmc",
+      "dmc",
+      "dc",
+      "isi",
+      "bui",
+      "vpd",
+      "rh_noon",
+      "t_noon",
+      "wind",
+      "precip",
+      "rain_7d",
+      "dry_streak"
+    ],
+    "features_fuego": [
+      "f_lag1",
+      "f_3d",
+      "f_7d",
+      "nb_7d",
+      "days_since_7d",
+      "clim_cell_month",
+      "clim_cell"
+    ],
+    "inferencia_clima": "Open-Meteo: variables del día actual, lluvia/racha seca calculadas solo con horas observadas hasta la consulta y viento resumido desde horas pronosticadas por horizonte."
+  },
+  "generado_utc": "2026-11-15T05:33:46+00:00",
+  "n_celdas": 465,
+  "n_test_filas": 608220,
+  "horizontes": {
+    "+24h": {
+      "Climatología celda×mes": {
+        "roc_auc": 0.7792,
+        "pr_auc": 0.0921,
+        "brier": 0.01829,
+        "hit_rate_topk": 0.1535,
+        "base_rate": 0.01937
+      },
+      "Persistencia 7 días": {
+        "roc_auc": 0.7954,
+        "pr_auc": 0.1029,
+        "brier": 0.03874,
+        "hit_rate_topk": 0.1702,
+        "base_rate": 0.01937
+      },
+      "IGNIS diario · sin clima": {
+        "roc_auc": 0.8041,
+        "pr_auc": 0.1178,
+        "brier": 0.01797,
+        "hit_rate_topk": 0.1954,
+        "base_rate": 0.01937
+      },
+      "IGNIS diario · FIRMS + NASA POWER (FWI)": {
+        "roc_auc": 0.8183,
+        "pr_auc": 0.1254,
+        "brier": 0.01788,
+        "hit_rate_topk": 0.2025,
+        "base_rate": 0.01937
+      }
+    },
+    "+48h": {
+      "Climatología celda×mes": {
+        "roc_auc": 0.7757,
+        "pr_auc": 0.1501,
+        "brier": 0.03267,
+        "hit_rate_topk": 0.2092,
+        "base_rate": 0.03589
+      },
+      "Persistencia 7 días": {
+        "roc_auc": 0.7881,
+        "pr_auc": 0.1625,
+        "brier": 0.05002,
+        "hit_rate_topk": 0.229,
+        "base_rate": 0.03589
+      },
+      "IGNIS diario · sin clima": {
+        "roc_auc": 0.7975,
+        "pr_auc": 0.1767,
+        "brier": 0.032,
+        "hit_rate_topk": 0.2449,
+        "base_rate": 0.03589
+      },
+      "IGNIS diario · FIRMS + NASA POWER (FWI)": {
+        "roc_auc": 0.8102,
+        "pr_auc": 0.1882,
+        "brier": 0.03175,
+        "hit_rate_topk": 0.2585,
+        "base_rate": 0.03589
+      }
+    },
+    "+72h": {
+      "Climatología celda×mes": {
+        "roc_auc": 0.774,
+        "pr_auc": 0.1967,
+        "brier": 0.04501,
+        "hit_rate_topk": 0.2504,
+        "base_rate": 0.05096
+      },
+      "Persistencia 7 días": {
+        "roc_auc": 0.784,
+        "pr_auc": 0.2084,
+        "brier": 0.05997,
+        "hit_rate_topk": 0.2627,
+        "base_rate": 0.05096
+      },
+      "IGNIS diario · sin clima": {
+        "roc_auc": 0.7935,
+        "pr_auc": 0.2256,
+        "brier": 0.04387,
+        "hit_rate_topk": 0.2866,
+        "base_rate": 0.05096
+      },
+      "IGNIS diario · FIRMS + NASA POWER (FWI)": {
+        "roc_auc": 0.8045,
+        "pr_auc": 0.2308,
+        "brier": 0.04354,
+        "hit_rate_topk": 0.2958,
+        "base_rate": 0.05096
+      }
+    }
+  }
+}

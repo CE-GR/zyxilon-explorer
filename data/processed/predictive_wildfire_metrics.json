@@ -1,0 +1,78 @@
+{
+  "model_comparison": [
+    {
+      "modelo": "Línea Base Climatológica (Naive)",
+      "roc_auc": 0.7842,
+      "pr_auc": 0.6319,
+      "brier_score": 0.1746,
+      "f1_score": 0.4109
+    },
+    {
+      "modelo": "Regresión Logística (L2 Regularized)",
+      "roc_auc": 0.8142,
+      "pr_auc": 0.6859,
+      "brier_score": 0.1555,
+      "f1_score": 0.5809
+    },
+    {
+      "modelo": "Random Forest (Clima Real + Historial)",
+      "roc_auc": 0.8181,
+      "pr_auc": 0.6927,
+      "brier_score": 0.1546,
+      "f1_score": 0.5662
+    },
+    {
+      "modelo": "Gradient Boosting (HGB Clima Real)",
+      "roc_auc": 0.8193,
+      "pr_auc": 0.6922,
+      "brier_score": 0.1533,
+      "f1_score": 0.5855
+    },
+    {
+      "modelo": "Gradient Boosting · Ensamble Calibrado IGNIS (NASA POWER)",
+      "roc_auc": 0.8206,
+      "pr_auc": 0.6954,
+      "brier_score": 0.153,
+      "f1_score": 0.5798
+    }
+  ],
+  "feature_importances": {
+    "seasonal_cell_clim": 0.2374,
+    "recent_12m_fires": 0.1217,
+    "hist_fire_rate": 0.0816,
+    "prev_neighbor_rate": 0.0733,
+    "months_since_fire": 0.0704,
+    "lag1_fire": 0.0637,
+    "recent_3m_fires": 0.031,
+    "hist_mean_frp": 0.028,
+    "isi": 0.0263,
+    "month_num": 0.0236,
+    "ffmc": 0.0219,
+    "recent_6m_fires": 0.0208,
+    "fwi_proxy": 0.0199,
+    "wx_precip_sum": 0.0189,
+    "doy_sin": 0.0181,
+    "wx_dry_days": 0.0172,
+    "wx_bui_mean": 0.0144,
+    "wx_fwi_max": 0.0138,
+    "wind_kmh": 0.0128,
+    "rh_pct": 0.0119,
+    "wx_diurnal_range": 0.0114,
+    "is_dry_season": 0.0113,
+    "temp_c": 0.0113,
+    "cell_lon": 0.0108,
+    "vpd_kpa": 0.0103,
+    "doy_cos": 0.0094,
+    "cell_lat": 0.0089
+  },
+  "test_eval_period": "2023 - 2026",
+  "train_period": "2000 - 2022 (calibrado en 2019-2022)",
+  "val_period": "2019 - 2022",
+  "clima_real_nasa_power": true,
+  "total_observations": 144150,
+  "test_observations": 20460,
+  "test_fires": 6406,
+  "champion": "Gradient Boosting · Ensamble Calibrado IGNIS (NASA POWER)",
+  "champion_roc_auc": 0.8206,
+  "champion_pr_auc": 0.6954
+}

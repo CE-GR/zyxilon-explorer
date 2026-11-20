@@ -1,0 +1,3491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NASA FIRMS // Zyxilon Explorer · Fullscreen Station</title>
+    <style>__LEAFLET_CSS__</style>
+    <script>__LEAFLET_JS__</script>
+    <script>__CIRCLE_JS__</script>
+    <script>
+    function lockViewportScroll() {
+        try {
+            window.scrollTo(0, 0);
+            if (document.body) document.body.scrollTop = 0;
+            if (document.documentElement) document.documentElement.scrollTop = 0;
+            if (window.parent && window.parent !== window) {
+                window.parent.scrollTo(0, 0);
+                if (window.parent.document.body) {
+                    window.parent.document.body.scrollTop = 0;
+                    window.parent.document.body.style.overflow = "hidden";
+                }
+                if (window.parent.document.documentElement) {
+                    window.parent.document.documentElement.scrollTop = 0;
+                    window.parent.document.documentElement.style.overflow = "hidden";
+                }
+                var pMain = window.parent.document.querySelector("section.main") || window.parent.document.querySelector(".main");
+                if (pMain) {
+                    pMain.scrollTop = 0;
+                    pMain.style.overflow = "hidden";
+                }
+                var pApp = window.parent.document.querySelector("[data-testid='stAppViewContainer']");
+                if (pApp) {
+                    pApp.scrollTop = 0;
+                    pApp.style.overflow = "hidden";
+                }
+            }
+        } catch(e) {}
+    }
+    window.addEventListener('DOMContentLoaded', lockViewportScroll);
+    window.addEventListener('load', lockViewportScroll);
+    window.addEventListener('resize', function() {
+        lockViewportScroll();
+        if (typeof map !== 'undefined' && map && map.invalidateSize) {
+            map.invalidateSize();
+        }
+    });
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Pixelify+Sans:wght@600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            overflow: hidden !important;
+            font-family: 'IBM Plex Mono', monospace;
+            background: #091a2e !important;
+            color: #F2F2F0;
+            user-select: none;
+        }
+
+        .font-pixel { font-family: 'Pixelify Sans', monospace; }
+
+        /* Contenedor Maestro Fullscreen Edge-to-Edge */
+        #frd-firms-viewport {
+            position: fixed !important;
+            inset: 0 !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            background: #091a2e !important;
+            overflow: hidden !important;
+        }
+
+        /* 1. BARRA SUPERIOR DE TELEMETRÍA (ANCHO COMPLETO 100%) */
+        #frd-top-bar {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 42px;
+            background: rgba(14, 14, 14, 0.96);
+            backdrop-filter: blur(8px);
+            border-bottom: 2px solid #222222;
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 11px;
+        }
+        .frd-top-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .frd-logo-title {
+            font-family: 'Pixelify Sans', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            color: #A6F014;
+            letter-spacing: -0.01em;
+        }
+        .frd-logo-badge {
+            background: #A6F014;
+            color: #0E0E0E;
+            font-weight: 800;
+            font-size: 9.5px;
+            padding: 2px 6px;
+            border: 1px solid #0E0E0E;
+        }
+        .frd-top-center {
+            font-size: 11px;
+            color: #F2F2F0;
+            letter-spacing: 0.4px;
+        }
+        .frd-top-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .frd-top-btn {
+            background: #1a1a1a;
+            border: 1.5px solid #333333;
+            color: #F2F2F0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 4px 10px;
+            cursor: pointer;
+            border-radius: 0px;
+            transition: all 0.08s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+        .frd-top-btn:hover {
+            background: #A6F014;
+            color: #0E0E0E;
+            border-color: #0E0E0E;
+        }
+        .frd-btn-lime {
+            background: #A6F014 !important;
+            color: #0E0E0E !important;
+            border-color: #0E0E0E !important;
+            font-weight: 800 !important;
+        }
+
+        /* 2. MAPA LEAFLET 100% DE LA PANTALLA */
+        #map_global {
+            position: absolute;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #091a2e;
+            z-index: 1;
+        }
+
+        /* Posicionamiento de Controles Leaflet */
+        .leaflet-top { top: 54px !important; }
+        .leaflet-left { left: 16px !important; }
+        .leaflet-bottom { bottom: 50px !important; }
+        .leaflet-control-zoom a {
+            border-radius: 0px !important;
+            background: #0E0E0E !important;
+            color: #F2F2F0 !important;
+            border: 1.5px solid #333333 !important;
+            box-shadow: 2px 2px 0 #0E0E0E !important;
+        }
+        .leaflet-control-zoom a:hover {
+            background: #A6F014 !important;
+            color: #0E0E0E !important;
+        }
+        .leaflet-control-scale {
+            background: #0E0E0E !important;
+            color: #F2F2F0 !important;
+            border: 1.5px solid #0E0E0E !important;
+            box-shadow: 2px 2px 0 #A6F014 !important;
+            font-family: 'IBM Plex Mono', monospace !important;
+            font-size: 9.5px !important;
+            padding: 2px 6px !important;
+        }
+        .leaflet-control-scale-line {
+            border: 1px solid #A6F014 !important;
+            border-top: none !important;
+            color: #F2F2F0 !important;
+            background: rgba(14,14,14,0.85) !important;
+        }
+
+        /* Botón de Recentrado República Dominicana (Bajo Zoom) */
+        #frd-locate-btn {
+            position: absolute;
+            top: 130px;
+            left: 16px;
+            width: 32px;
+            height: 32px;
+            background: #0E0E0E;
+            border: 1.5px solid #333333;
+            box-shadow: 2px 2px 0 #0E0E0E;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            color: #A6F014;
+            transition: all 0.08s ease;
+        }
+        #frd-locate-btn:hover {
+            background: #A6F014;
+            color: #0E0E0E;
+        }
+
+        /* 3. PANEL LATERAL DERECHO FLOTANTE ("BASIC MODE" / MODO SATELITAL NASA) */
+        #frd-firms-viewport:not(.panel-collapsed):not(.panel-moved) .map-legend {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+        #frd-right-panel {
+            position: absolute;
+            top: 46px;
+            right: 12px;
+            width: 330px;
+            max-height: calc(100vh - 90px);
+            background: #0E0E0E;
+            border: 2.5px solid #0E0E0E;
+            box-shadow: 6px 6px 0 #A6F014;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
+        }
+        #frd-right-panel.collapsed {
+            transform: scale(0.96);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+        }
+        #frd-right-panel.minimized .frd-time-pills,
+        #frd-right-panel.minimized .frd-panel-body,
+        #frd-right-panel.minimized .frd-subbar-label {
+            display: none !important;
+        }
+        .frd-panel-header {
+            background: #0E0E0E;
+            border-bottom: 2px solid #A6F014;
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'Pixelify Sans', monospace;
+            font-size: 13px;
+            color: #A6F014;
+            letter-spacing: 0.5px;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .frd-panel-header:active {
+            cursor: grabbing;
+        }
+        .frd-panel-close {
+            background: transparent;
+            border: none;
+            color: #F2F2F0;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .frd-panel-close:hover { color: #FF3B1D; }
+        .frd-drag-grip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+        }
+        .frd-drag-dots {
+            font-family: monospace;
+            font-size: 12px;
+            color: #A6F014;
+            opacity: 0.85;
+            letter-spacing: -1px;
+        }
+        .frd-is-dragging {
+            transition: none !important;
+            user-select: none !important;
+            cursor: grabbing !important;
+            z-index: 1008 !important;
+            box-shadow: 8px 8px 0 #A6F014 !important;
+        }
+        .frd-dock-grip {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+            color: #A6F014;
+            font-size: 13px;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            opacity: 0.8;
+            border-right: 1px solid #333333;
+            align-self: stretch;
+        }
+        .frd-dock-grip:active { cursor: grabbing; }
+
+        .frd-time-pills {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 3px;
+            padding: 3px 6px;
+            background: #141414;
+            border-bottom: 1px solid #222222;
+        }
+        .frd-time-pill {
+            background: #1e1e1e;
+            border: 1px solid #333333;
+            color: #C4C4C0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 3px 1px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.08s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .frd-time-pill:hover {
+            background: #2a2a2a;
+            color: #FFFFFF;
+        }
+        .frd-time-pill.active {
+            background: #A6F014 !important;
+            color: #0E0E0E !important;
+            border: 1.5px solid #0E0E0E !important;
+            font-weight: 800 !important;
+        }
+        .frd-pill-pred {
+            background: #0f2413 !important;
+            border: 1px solid #1f4a25 !important;
+            color: #A6F014 !important;
+        }
+        .frd-pill-pred:hover {
+            background: #1c3d1f !important;
+            color: #FFFFFF !important;
+        }
+        .frd-pill-pred.active {
+            background: #A6F014 !important;
+            color: #0E0E0E !important;
+            border: 1.5px solid #0E0E0E !important;
+            font-weight: 800 !important;
+        }
+        .frd-tl-future {
+            color: #A6F014 !important;
+            font-weight: 700 !important;
+        }
+        .frd-tl-future:hover {
+            color: #FFFFFF !important;
+            background: #1c3d1f !important;
+        }
+        .frd-tl-future.active {
+            background: #A6F014 !important;
+            color: #0E0E0E !important;
+        }
+
+        .frd-panel-body {
+            padding: 4px 10px;
+            overflow-y: auto;
+            max-height: calc(100vh - 154px);
+            font-size: 10.5px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .frd-panel-body::-webkit-scrollbar { width: 0px; display: none; }
+
+        .frd-panel-sec {
+            margin-bottom: 4px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #222222;
+        }
+        .frd-sec-title {
+            font-size: 9px;
+            font-weight: 700;
+            color: #A6F014;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+            letter-spacing: 0.4px;
+        }
+        .frd-check-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1px 2px;
+            font-size: 9.5px;
+            cursor: pointer;
+        }
+        .frd-check-item:hover { background: #1a1a1a; }
+        .frd-check-item input { accent-color: #A6F014; margin-right: 6px; cursor: pointer; }
+        .frd-swatch {
+            width: 10px;
+            height: 10px;
+            display: inline-block;
+            margin-right: 6px;
+            border: 1px solid #0E0E0E;
+            flex-shrink: 0;
+        }
+        .frd-check-count {
+            font-size: 10px;
+            font-weight: 700;
+            color: #FFFFFF;
+            background: #1e1e1e;
+            padding: 1px 5px;
+            border: 1px solid #333333;
+        }
+
+        .frd-base-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+        .frd-base-btn {
+            background: #1e1e1e;
+            border: 1px solid #333333;
+            color: #C4C4C0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px;
+            font-weight: 600;
+            padding: 4px 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.08s;
+        }
+        .frd-base-btn:hover { background: #2a2a2a; color: #FFFFFF; }
+        .frd-base-btn.active {
+            background: #A6F014;
+            color: #0E0E0E;
+            border-color: #0E0E0E;
+            font-weight: 800;
+        }
+
+        .frd-region-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+        .frd-reg-btn {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            color: #F2F2F0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 8.5px;
+            font-weight: 600;
+            padding: 3px 5px;
+            cursor: pointer;
+            transition: all 0.08s;
+        }
+        .frd-reg-btn:hover {
+            background: #A6F014;
+            color: #0E0E0E;
+            border-color: #0E0E0E;
+        }
+
+        .frd-telemetry-box {
+            background: #141414;
+            border: 1px solid #333333;
+            padding: 8px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            text-align: center;
+        }
+        .frd-t-label {
+            font-size: 8.5px;
+            color: #888888;
+            text-transform: uppercase;
+        }
+        .frd-t-val {
+            font-size: 13px;
+            font-weight: 700;
+            color: #F2F2F0;
+        }
+
+        /* 4. BARRA DE HERRAMIENTAS INFERIOR FLOTANTE (DOCK NASA FIRMS) */
+        #frd-bottom-dock {
+            position: absolute;
+            bottom: 48px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0E0E0E;
+            border: 2.5px solid #0E0E0E;
+            box-shadow: 5px 5px 0 #A6F014;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 4px 6px;
+        }
+        .frd-dock-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            color: #F2F2F0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 5px 9px;
+            cursor: pointer;
+            border-radius: 0px;
+            transition: all 0.08s;
+            min-width: 56px;
+        }
+        .frd-dock-btn span.icon { font-size: 14px; margin-bottom: 2px; }
+        .frd-dock-btn:hover {
+            background: #A6F014;
+            color: #0E0E0E;
+            border-color: #0E0E0E;
+        }
+        .frd-dock-btn.active {
+            background: #A6F014 !important;
+            color: #0E0E0E !important;
+            font-weight: 800 !important;
+        }
+        .frd-dock-btn-excel {
+            background: #A6F014;
+            color: #0E0E0E;
+            border-color: #0E0E0E;
+            font-weight: 800;
+        }
+        .frd-dock-btn-excel:hover {
+            background: #FFFFFF;
+            color: #0E0E0E;
+        }
+        .frd-dock-btn-csv {
+            background: #FF3B1D;
+            color: #FFFFFF;
+            border-color: #0E0E0E;
+            font-weight: 800;
+        }
+        .frd-dock-btn-csv:hover {
+            background: #FFFFFF;
+            color: #0E0E0E;
+        }
+        .frd-ramp-pills {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .frd-ramp-btn {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            color: #C4C4C0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 4px 3px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.08s;
+        }
+        .frd-ramp-btn:hover { background: #262626; color: #FFFFFF; }
+        .frd-ramp-btn.active {
+            background: #A6F014;
+            color: #0E0E0E;
+            border-color: #0E0E0E;
+            font-weight: 800;
+        }
+
+        /* 5. LÍNEA DE TIEMPO SATELITAL INFERIOR (TIMELINE STRIP) */
+        #frd-timeline-bar {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 40px;
+            background: #0E0E0E;
+            border-top: 2px solid #222222;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 10.5px;
+            color: #F2F2F0;
+        }
+        #frd-timeline-bar.hidden-tl { display: none; }
+        .frd-tl-month {
+            font-weight: 800;
+            color: #A6F014;
+            font-size: 11px;
+            white-space: nowrap;
+            font-family: 'Pixelify Sans', monospace;
+            letter-spacing: 0.5px;
+        }
+        .frd-tl-dates {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            overflow-x: auto;
+            padding: 0 10px;
+        }
+        .frd-tl-day {
+            padding: 2px 6px;
+            cursor: pointer;
+            color: #C4C4C0;
+            font-size: 10px;
+            border: 1px solid transparent;
+            transition: all 0.08s;
+        }
+        .frd-tl-day:hover { background: #222222; color: #FFFFFF; }
+        .frd-tl-day.active {
+            background: #A6F014;
+            color: #0E0E0E;
+            font-weight: 800;
+            border-color: #0E0E0E;
+            box-shadow: 2px 2px 0 #FFFFFF;
+        }
+        .frd-tl-sep { color: #444444; font-size: 10px; margin: 0 3px; }
+        .frd-tl-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .frd-tl-step-btn {
+            background: #1a1a1a;
+            border: 1px solid #444444;
+            color: #F2F2F0;
+            padding: 3px 7px;
+            cursor: pointer;
+            font-size: 9.5px;
+        }
+        .frd-tl-step-btn:hover { background: #A6F014; color: #0E0E0E; }
+        .frd-tl-active-txt {
+            font-weight: 700;
+            color: #A6F014;
+            font-size: 10.5px;
+        }
+
+        
+        /* NASA FIRMS Dot Marker (Vista Simple) */
+        .firms-dot { background: transparent !important; border: 0 !important; }
+        .firms-dot > div { box-shadow: 0 0 0 0.5px rgba(0,0,0,0.65); }
+    
+        /* Popups de Leaflet Brutalistas */
+        .leaflet-popup-content-wrapper {
+            background: #0E0E0E !important;
+            border: 2px solid #0E0E0E !important;
+            border-radius: 0px !important;
+            color: #F2F2F0 !important;
+            box-shadow: 5px 5px 0 #A6F014 !important;
+            font-family: 'IBM Plex Mono', monospace !important;
+            padding: 0 !important;
+        }
+        .leaflet-popup-content {
+            margin: 0 !important;
+            line-height: 1.4 !important;
+        }
+        .leaflet-popup-tip-container { display: none !important; }
+        .leaflet-container a.leaflet-popup-close-button {
+            color: #FF3B1D !important;
+            font-size: 16px !important;
+            font-weight: 800 !important;
+            padding: 4px !important;
+        }
+
+        .hud-card { padding: 12px 14px; min-width: 250px; }
+        .hud-header {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            border-bottom: 1.5px solid #222222;
+            padding-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .hud-meter { width: 100%; height: 6px; background: #222222; border-radius: 0px; margin: 8px 0; overflow: hidden; }
+        .hud-meter-fill { height: 100%; border-radius: 0px; background: linear-gradient(90deg, #A6F014, #FF3B1D); }
+        .hud-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 11px; color: #F2F2F0; }
+        .hud-label { color: #C4C4C0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .hud-val { font-weight: 600; color: #F2F2F0; }
+
+        /* Focos Predictivos Tácticos IGNIS (+24h / +48h / +72h) */
+        .ignis-pred-wrap {
+            background: transparent !important;
+            border: none !important;
+            pointer-events: auto !important;
+        }
+        .ignis-pred-beacon {
+            position: relative;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .ignis-pred-glow {
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .ignis-pred-pulse {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1.5px solid #FF3B1D;
+            opacity: 0;
+            animation: ignisPulseRing 2.1s cubic-bezier(0.2, 0.8, 0.3, 1) infinite;
+            pointer-events: none;
+        }
+        @keyframes ignisPulseRing {
+            0%   { transform: scale(0.45); opacity: 0.9; }
+            75%  { transform: scale(1.35); opacity: 0.08; }
+            100% { transform: scale(1.45); opacity: 0; }
+        }
+        .ignis-pred-core {
+            position: relative;
+            border-radius: 50%;
+            border: 1.5px solid rgba(255, 255, 255, 0.88);
+            z-index: 2;
+        }
+        .ignis-pred-badge {
+            position: absolute;
+            top: -11px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(14, 14, 14, 0.92);
+            color: #F2F2F0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 8.5px;
+            font-weight: 800;
+            line-height: 1;
+            padding: 2px 4px;
+            border: 1px solid #FF3B1D;
+            white-space: nowrap;
+            letter-spacing: 0.2px;
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .map-legend {
+            background: #0E0E0E;
+            border: 2px solid #0E0E0E;
+            padding: 8px 12px;
+            border-radius: 0px;
+            font-size: 11px;
+            color: #F2F2F0;
+            line-height: 1.5;
+            box-shadow: 4px 4px 0 #A6F014;
+            font-family: 'IBM Plex Mono', monospace;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .map-legend:active { cursor: grabbing; }
+        .prov-tooltip {
+            background: rgba(14, 14, 14, 0.92) !important;
+            border: 1.5px solid #22d3ee !important;
+            color: #22d3ee !important;
+            font-family: 'IBM Plex Mono', monospace !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+            padding: 3px 8px !important;
+            border-radius: 0px !important;
+            box-shadow: 2px 2px 0 #0E0E0E !important;
+        }
+        .prov-tooltip::before { border-top-color: #22d3ee !important; }
+        #sel-region option, #sel-clima-provincia option, #sel-clima-provincia optgroup { background: #1e1e1e; color: #F2F2F0; }
+        .clima-metric-box {
+            background: #111827;
+            border: 1px solid #1f2937;
+            padding: 3px 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+        .clima-metric-lbl {
+            font-size: 8px;
+            color: #9ca3af;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .clima-metric-val {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #F2F2F0;
+            font-family: 'Pixelify Sans', monospace;
+        }
+        .clima-fwi-pill {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 9px;
+            font-weight: 800;
+            border-radius: 2px;
+            text-transform: uppercase;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        /* =========================================================
+           HUD FLOTANTE DE FEEDBACK PARA PREDICCIÓN IA (+24h/+48h/+72h)
+           ========================================================= */
+        .pred-hud {
+            position: fixed;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999;
+            background: #0E0E0E;
+            border: 2px solid #A6F014;
+            box-shadow: 4px 4px 0 #0E0E0E, 0 8px 32px rgba(0, 0, 0, 0.75);
+            color: #F4F4F0;
+            padding: 9px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'IBM Plex Mono', monospace;
+            pointer-events: none;
+            max-width: 94vw;
+            width: 530px;
+            animation: pred-hud-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes pred-hud-in {
+            from { opacity: 0; transform: translate(-50%, -16px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .pred-hud.fade-out {
+            animation: pred-hud-out 0.4s ease forwards;
+        }
+        @keyframes pred-hud-out {
+            to { opacity: 0; transform: translate(-50%, -12px); }
+        }
+        .pred-hud-radar {
+            width: 26px;
+            height: 26px;
+            border: 1.5px solid #A6F014;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            background: rgba(166, 240, 20, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .pred-radar-sweep {
+            position: absolute;
+            inset: 0;
+            background: conic-gradient(from 0deg, rgba(166,240,20,0.7) 0deg, transparent 90deg);
+            border-radius: 50%;
+            animation: pred-sweep-spin 1.1s linear infinite;
+        }
+        @keyframes pred-sweep-spin {
+            to { transform: rotate(360deg); }
+        }
+        .pred-radar-dot {
+            position: relative;
+            width: 6px;
+            height: 6px;
+            background: #FF3B1D;
+            border-radius: 50%;
+            box-shadow: 0 0 6px #FF3B1D;
+            z-index: 2;
+        }
+        .pred-hud-center {
+            flex: 1;
+            min-width: 0;
+        }
+        .pred-hud-title {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            color: #A6F014;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pred-hud-desc {
+            font-size: 9.5px;
+            color: #C4C4C0;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pred-hud-progress {
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.18);
+            margin-top: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pred-hud-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0%;
+            background: #A6F014;
+            transition: width 0.35s ease;
+        }
+        .pred-hud-tag {
+            font-size: 8.5px;
+            font-weight: 800;
+            padding: 3px 6px;
+            background: #A6F014;
+            color: #0E0E0E;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+            border: 1px solid #0E0E0E;
+            flex-shrink: 0;
+        }
+        .pred-hud-tag.ready {
+            background: #22d3ee;
+            color: #0E0E0E;
+        }
+
+        /* =========================================================
+           RESPONSIVE DESIGN (MOBILE & TABLET ADAPTATIONS)
+           ========================================================= */
+        .frd-panel-toggle-btn {
+            display: none;
+        }
+        .frd-mobile-badge {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            /* 1. Ocultar elementos pesados y superpuestos que saturan la pantalla móvil */
+            .map-legend {
+                display: none !important;
+            }
+            #frd-timeline-bar {
+                display: none !important;
+            }
+            #frd-locate-btn {
+                display: none !important;
+            }
+            .leaflet-control-scale {
+                display: none !important;
+            }
+            .frd-logo-badge {
+                display: none !important;
+            }
+            .frd-top-center {
+                display: none !important;
+            }
+
+            /* 2. Barra Superior Limpia y Compacta */
+            #frd-top-bar {
+                height: 42px;
+                padding: 0 10px;
+                background: rgba(14, 14, 14, 0.95);
+            }
+            .frd-logo-title {
+                font-size: 13px;
+                letter-spacing: -0.01em;
+            }
+            .frd-mobile-badge {
+                display: inline-flex !important;
+                align-items: center;
+                gap: 3px;
+                font-size: 9px;
+                font-weight: 800;
+                color: #FF3B1D;
+                background: #1e1e1e;
+                padding: 2px 6px;
+                border: 1px solid #333333;
+                border-radius: 0;
+            }
+            .frd-top-right {
+                gap: 5px;
+            }
+            .frd-top-btn {
+                padding: 3.5px 7px;
+                font-size: 9px;
+            }
+            .frd-panel-toggle-btn {
+                display: inline-flex !important;
+                align-items: center;
+                gap: 4px;
+                font-weight: 800 !important;
+                background: #A6F014 !important;
+                color: #0E0E0E !important;
+                border-color: #0E0E0E !important;
+            }
+            .frd-panel-toggle-btn.active {
+                background: #FF3B1D !important;
+                color: #FFFFFF !important;
+                border-color: #0E0E0E !important;
+            }
+
+            /* 3. Dock Inferior Ligero y Minimalista (Solo 3 Acciones Clave Flotando) */
+            #frd-bottom-dock {
+                bottom: 18px !important;
+                padding: 4px 8px !important;
+                gap: 6px !important;
+                background: rgba(14, 14, 14, 0.95) !important;
+                backdrop-filter: blur(8px) !important;
+                border: 1.5px solid #0E0E0E !important;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 2px 2px 0 #A6F014 !important;
+                border-radius: 4px !important;
+                max-width: calc(100vw - 24px) !important;
+            }
+            .frd-dock-grip,
+            #btn-dock-measure,
+            #btn-dock-clima,
+            #btn-dock-timeline {
+                display: none !important;
+            }
+            .frd-dock-btn {
+                min-width: 44px !important;
+                padding: 4px 6px !important;
+                font-size: 8.5px !important;
+                flex-direction: row !important;
+                gap: 4px !important;
+                border-radius: 2px !important;
+            }
+            .frd-dock-btn span.icon {
+                font-size: 11px !important;
+                margin-bottom: 0 !important;
+            }
+
+            /* 4. Panel lateral flotante al abrirse: limpio, centrado y con scroll táctil */
+            #frd-right-panel {
+                top: 48px !important;
+                left: 10px !important;
+                right: 10px !important;
+                width: auto !important;
+                max-width: calc(100vw - 20px) !important;
+                max-height: calc(100vh - 80px) !important;
+                box-shadow: 4px 4px 0 #A6F014 !important;
+            }
+            .frd-panel-body {
+                max-height: calc(100vh - 170px) !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* 5. Controles de Zoom Leaflet */
+            .leaflet-top {
+                top: 52px !important;
+            }
+            .leaflet-left {
+                left: 10px !important;
+            }
+            .leaflet-control-zoom a {
+                width: 28px !important;
+                height: 28px !important;
+                line-height: 28px !important;
+                font-size: 13px !important;
+            }
+
+            /* 6. Feedback HUD en Móvil */
+            .pred-hud {
+                top: 46px !important;
+                left: 5% !important;
+                right: 5% !important;
+                transform: none !important;
+                width: 90% !important;
+                max-width: 90% !important;
+                padding: 7px 10px !important;
+                gap: 8px !important;
+            }
+            .pred-hud-title {
+                font-size: 9.5px !important;
+            }
+            .pred-hud-desc {
+                font-size: 8px !important;
+            }
+            .pred-hud-radar {
+                width: 22px !important;
+                height: 22px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .frd-logo-title {
+                font-size: 12px;
+            }
+            .frd-top-btn {
+                padding: 2.5px 4.5px;
+                font-size: 8px;
+            }
+            .frd-dock-btn {
+                min-width: 38px !important;
+                padding: 2px 3px !important;
+                font-size: 7.5px !important;
+            }
+            .frd-dock-btn span.icon {
+                font-size: 11px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="frd-firms-viewport">
+        <!-- 1. Top Bar Telemetría -->
+        <div id="frd-top-bar">
+            <div class="frd-top-left">
+                <span class="frd-logo-title font-pixel">🛰️ ZYXILON EXPLORER</span>
+                <span class="frd-logo-badge">NASA FIRMS NRT</span>
+                <span id="dyn-mobile-total" class="frd-mobile-badge" title="Active hotspots detected">🔥 <span id="dyn-total-mob">__TOTAL_FOCOS__</span></span>
+            </div>
+            <div class="frd-top-center">
+                Lat: <span id="dyn-lat" style="color:#A6F014; font-weight:700;">__CENTER_LAT__</span>°, Lon: <span id="dyn-lon" style="color:#A6F014; font-weight:700;">__CENTER_LON__</span>° &nbsp;|&nbsp;
+                <span style="color:#FF3B1D; font-weight:700;">ACTIVE HOTSPOTS: <span id="dyn-total">__TOTAL_FOCOS__</span></span> &nbsp;|&nbsp;
+                <span id="dyn-win-label" style="color:#A6F014; font-weight:700;">24 HOURS (1 DAY)</span>
+                <span id="prediction-status" style="color:#cbd5e1; font-size:10px; margin-left:8px;"></span>
+            </div>
+            <div class="frd-top-right">
+                <button type="button" id="frd-panel-toggle-btn" class="frd-top-btn frd-panel-toggle-btn" onclick="toggleRightPanel()" title="Toggle layers and controls">☰ LAYERS</button>
+                <button type="button" class="frd-top-btn" onclick="window.location.reload()" title="Refresh satellite view">🔄 REFRESH</button>
+                <a href="/?view=landing" target="_top" onclick="return navigateTop(event, this.getAttribute('href'))" class="frd-top-btn frd-btn-lime" title="Return to orbital home">← HOME</a>
+            </div>
+        </div>
+
+        <!-- Feedback HUD de Inferencia y Predicción IA -->
+        <div id="pred-hud" class="pred-hud" style="display:none;" role="status" aria-live="polite">
+            <div class="pred-hud-left">
+                <div class="pred-hud-radar">
+                    <span class="pred-radar-sweep"></span>
+                    <span class="pred-radar-dot"></span>
+                </div>
+            </div>
+            <div class="pred-hud-center">
+                <div class="pred-hud-title" id="pred-hud-title">⚡ COMPUTING AI PREDICTIVE MODEL <span id="pred-hud-horizon">+24H</span></div>
+                <div class="pred-hud-desc" id="pred-hud-desc">Coupling H3 geodesic cells, NASA FIRMS telemetry, and hourly wind vectors...</div>
+                <div class="pred-hud-progress"><div class="pred-hud-bar" id="pred-hud-bar"></div></div>
+            </div>
+            <div class="pred-hud-right">
+                <span class="pred-hud-tag" id="pred-hud-tag">PROCESSING</span>
+            </div>
+        </div>
+
+        <!-- 2. Mapa Leaflet (100% de la web) -->
+        <div id="map_global"></div>
+
+        <!-- 3. Botón de Recentrado República Dominicana -->
+        <div id="frd-locate-btn" title="Center on Dominican Republic (Local Hotspots)" onclick="recenterRD()">
+            📍
+        </div>
+
+        <!-- 4. Panel Lateral Derecho ("BASIC MODE" / MODO SATELITAL NASA) -->
+        <div id="frd-right-panel">
+            <div class="frd-panel-header" id="frd-right-panel-header" title="Drag here to move menu anywhere on screen (double-click to reset position)">
+                <span class="font-pixel frd-drag-grip"><span class="frd-drag-dots">⋮⋮</span> ☰ NASA SATELLITE MODE</span>
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <button type="button" class="frd-panel-close" onclick="minimizeRightPanel()" title="Collapse / expand content">_</button>
+                    <button type="button" class="frd-panel-close" onclick="toggleRightPanel()" title="Hide panel">✕</button>
+                </div>
+            </div>
+
+            <!-- Selector Temporal Satelital -->
+            <div class="frd-subbar-label" style="font-size: 8px; font-weight: 700; color: #C4C4C0; padding: 2px 8px 1px 8px; background: #141414; letter-spacing: 0.5px;">
+                🛰️ SATELLITE PASSES (NASA NRT):
+            </div>
+            <div class="frd-time-pills">
+                <button class="frd-time-pill" onclick="setTimePill('envivo', this)" title="Live satellite hotspots (latest hours)">🔴 LIVE</button>
+                <button class="frd-time-pill active" onclick="setTimePill('24h', this)" title="Last 24 hours">24 HRS</button>
+                <button class="frd-time-pill" onclick="setTimePill('48h', this)" title="Last 48 hours">48 HRS</button>
+                <button class="frd-time-pill" onclick="setTimePill('72h', this)" title="Last 72 hours (3 days)">72 HRS</button>
+                <button class="frd-time-pill" onclick="setTimePill('7d', this)" title="Last 7 orbital days">7 DAYS</button>
+            </div>
+
+            <!-- Selector Predicción Próximos Días -->
+            <div class="frd-subbar-label" style="font-size: 8px; font-weight: 700; color: #A6F014; padding: 2px 8px 1px 8px; background: #141414; border-top: 1px solid #222222; letter-spacing: 0.5px;">
+                🔮 GLOBAL NASA MODEL / DAILY DR FORECAST:
+            </div>
+            <div class="frd-time-pills frd-pred-pills" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 2px;">
+                <button class="frd-time-pill frd-pill-pred" onclick="setFuturePrediction(24, this)" title="Global GFA probability & scenario progression with NASA GEOS-FP wind">+24H</button>
+                <button class="frd-time-pill frd-pill-pred" onclick="setFuturePrediction(48, this)" title="Global GFA probability & scenario progression with NASA GEOS-FP wind">+48H</button>
+                <button class="frd-time-pill frd-pill-pred" onclick="setFuturePrediction(72, this)" title="Global GFA probability & scenario progression with NASA GEOS-FP wind">+72H</button>
+            </div>
+
+            <!-- Cuerpo del Panel -->
+            <div class="frd-panel-body">
+                <!-- Sección: Focos Térmicos (Constelación NASA Completa) -->
+                <div class="frd-panel-sec">
+                    <div class="frd-sec-title">🔥 THERMAL HOTSPOTS / ANOMALIES</div>
+                    <label class="frd-check-item">
+                        <div style="display:flex; align-items:center;">
+                            <input type="checkbox" id="chk-v20" checked onchange="toggleSensorLayer('v20', this.checked)">
+                            <span class="frd-swatch" id="swatch-v20" style="background:#FF3B1D;"></span>
+                            <span><b>VIIRS NOAA-20</b> (375 m · J1)</span>
+                        </div>
+                        <span class="frd-check-count" id="count-v20">__TOTAL_V20__</span>
+                    </label>
+                    <label class="frd-check-item">
+                        <div style="display:flex; align-items:center;">
+                            <input type="checkbox" id="chk-v21" checked onchange="toggleSensorLayer('v21', this.checked)">
+                            <span class="frd-swatch" id="swatch-v21" style="background:#f97316;"></span>
+                            <span><b>VIIRS NOAA-21</b> (375 m · J2)</span>
+                        </div>
+                        <span class="frd-check-count" id="count-v21">__TOTAL_V21__</span>
+                    </label>
+                    <label class="frd-check-item" id="row-vsnpp" title="VIIRS Suomi-NPP (375 m)">
+                        <div style="display:flex; align-items:center;">
+                            <input type="checkbox" id="chk-vsnpp" checked onchange="toggleSensorLayer('vsnpp', this.checked)">
+                            <span class="frd-swatch" id="swatch-vsnpp" style="background:#eab308;"></span>
+                            <span id="label-vsnpp"><b>VIIRS Suomi-NPP</b> (375 m)</span>
+                        </div>
+                        <span class="frd-check-count" id="count-vsnpp">__TOTAL_VSNPP__</span>
+                    </label>
+                    <label class="frd-check-item">
+                        <div style="display:flex; align-items:center;">
+                            <input type="checkbox" id="chk-modis" checked onchange="toggleSensorLayer('modis', this.checked)">
+                            <span class="frd-swatch" id="swatch-modis" style="background:#A6F014;"></span>
+                            <span><b>MODIS C6.1</b> (1 km · Terra & Aqua)</span>
+                        </div>
+                        <span class="frd-check-count" id="count-modis">__TOTAL_MODIS__</span>
+                    </label>
+                    <label class="frd-check-item">
+                        <div style="display:flex; align-items:center;">
+                            <input type="checkbox" id="chk-h3" onchange="toggleSensorLayer('h3', this.checked)">
+                            <span class="frd-swatch" style="background:#0284c7;"></span>
+                            <span><b>H3 Grid</b> (Uber Res-7 DR)</span>
+                        </div>
+                        <span class="frd-check-count">360</span>
+                    </label>
+                    <div id="snpp-eol-note" style="display:none; font-size:8.5px; color:#94a3b8; border-left:2px solid #fbbf24; padding:3px 6px; margin-top:5px; line-height:1.35; background:rgba(251,191,36,0.06);">
+                        <b>Suomi-NPP NRT Retired (Nov 2, 2026):</b> NASA ceased S-NPP VIIRS NRT streams at 13:00 UTC. Historical 2012–2026 archive powers LOYO harmonization; live 375 m continuity runs on NOAA-20 &amp; NOAA-21.
+                    </div>
+                </div>
+
+                <!-- Accessibility Color Ramp Selector -->
+                <div class="frd-panel-sec">
+                    <div class="frd-sec-title">🎨 ACCESSIBLE COLOR RAMP (CVD-SAFE)</div>
+                    <div class="frd-ramp-pills">
+                        <button type="button" class="frd-ramp-btn active" id="ramp-btn-ignis" onclick="setColorRamp('ignis')">IGNIS</button>
+                        <button type="button" class="frd-ramp-btn" id="ramp-btn-viridis" onclick="setColorRamp('viridis')">VIRIDIS</button>
+                        <button type="button" class="frd-ramp-btn" id="ramp-btn-cividis" onclick="setColorRamp('cividis')">CIVIDIS</button>
+                    </div>
+                </div>
+
+                <!-- Sección: Capas Base -->
+                <div class="frd-panel-sec">
+                    <div class="frd-sec-title">🛰️ BASE LAYER / MAP</div>
+                    <div class="frd-base-grid">
+                        <button class="frd-base-btn active" id="btn-base-esri" onclick="switchBaseLayer('esri')">Esri Satellite HD</button>
+                        <button class="frd-base-btn" id="btn-base-dark" onclick="switchBaseLayer('dark')">Carto Dark</button>
+                        <button class="frd-base-btn" id="btn-base-carto" onclick="switchBaseLayer('carto')">Carto Positron</button>
+                        <button class="frd-base-btn" id="btn-base-voyager" onclick="switchBaseLayer('voyager')">Carto Voyager</button>
+                    </div>
+                </div>
+
+                <!-- Sección: Filtro FRP en Vivo -->
+                <div class="frd-panel-sec">
+                    <div class="frd-sec-title">⚡ FRP ENERGY FILTER: <span id="frp-slider-label" style="color:#A6F014; font-weight:800;">0</span> MW</div>
+                    <input type="range" id="frp-slider" min="0" max="60" step="1" value="0" oninput="filterFRP(this.value)" style="width:100%; accent-color:#A6F014; cursor:pointer;">
+                    <div style="display:flex; justify-content:space-between; font-size:9px; color:#C4C4C0; margin-top:2px;">
+                        <span>0 MW (All)</span>
+                        <span>25 MW (Intense)</span>
+                        <span>50+ MW (Critical)</span>
+                    </div>
+                </div>
+
+                <!-- Sección 1: Cobertura Orbital / RD y Continentes (Sin desglose por provincias) -->
+                <div class="frd-panel-sec" id="sec-regiones">
+                    <div class="frd-sec-title">📍 ORBITAL COVERAGE & CONTINENTS</div>
+                    <select id="sel-region" onchange="filterRegion(this.value)" style="width:100%; background:#1e1e1e; border:1px solid #333; color:#F2F2F0; font-family:'IBM Plex Mono',monospace; font-size:10px; padding:4px 6px; cursor:pointer; outline:none; font-weight:700;">
+                        <option value="global" selected>🌐 Entire Planet (Global)</option>
+                        <option value="rd">🇩🇴 Dominican Republic (National)</option>
+                        <option value="north_america">🌲 North America (USA, Canada, Mexico)</option>
+                        <option value="central_america">🌴 Central America & Caribbean</option>
+                        <option value="south_america">🔥 South America (Amazon, Gran Chaco)</option>
+                        <option value="europe">🏛️ Europe & Mediterranean Basin</option>
+                        <option value="africa">🦁 Africa (Sahel, Savanna, Congo)</option>
+                        <option value="asia">🌏 Asia & Oceania (Siberia, Australia)</option>
+                    </select>
+                    <label class="frd-check-item" style="margin-top:4px;">
+                        <div style="display:flex; align-items:center;">
+                            <input type="checkbox" id="chk-prov-borders" checked onchange="toggleProvBorders(this.checked)">
+                            <span class="frd-swatch" style="background:#22d3ee;"></span>
+                            <span><b>DR Provincial Boundaries (Cyan)</b></span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Sección: Acceso Directo por Continentes -->
+                <div class="frd-panel-sec">
+                    <div class="frd-sec-title">🌍 CONTINENTAL JUMP</div>
+                    <div class="frd-region-pills">
+                        <button class="frd-reg-btn" onclick="filterRegion('rd')">🇩🇴 Dominican Republic</button>
+                        <button class="frd-reg-btn" onclick="filterRegion('global')">🌍 Global</button>
+                        <button class="frd-reg-btn" onclick="filterRegion('south_america')">🌴 Amazon</button>
+                        <button class="frd-reg-btn" onclick="filterRegion('north_america')">🌲 N. America</button>
+                        <button class="frd-reg-btn" onclick="filterRegion('africa')">🔥 Africa</button>
+                        <button class="frd-reg-btn" onclick="filterRegion('europe')">🏛️ Europe</button>
+                        <button class="frd-reg-btn" onclick="filterRegion('asia')">🌏 Asia</button>
+                    </div>
+                </div>
+
+                <!-- Sección Aparte: Clima en Tiempo Real por Cobertura Orbital y Provincias RD -->
+                <div class="frd-panel-sec" id="sec-clima-provincias" style="border-top:2px solid #22d3ee; padding-top:5px; margin-bottom:0; padding-bottom:2px; border-bottom:none; background:rgba(34,211,238,0.03);">
+                    <div class="frd-sec-title" style="display:flex; justify-content:space-between; align-items:center; color:#22d3ee;">
+                        <span>🌤️ LIVE WEATHER & FWI RISK (GLOBAL & DR)</span>
+                        <span style="background:#22d3ee; color:#0E0E0E; font-size:8px; padding:1px 4px; font-weight:800;">OPEN-METEO NRT</span>
+                    </div>
+                    <div style="font-size:8.5px; color:#C4C4C0; margin-bottom:4px; line-height:1.25;">
+                        Meteorological telemetry & FWI ignition risk synchronized with orbital coverage (Continents, Global Hotspots, and DR Provinces):
+                    </div>
+                    <select id="sel-clima-provincia" onchange="changeClimaProvincia(this.value, false)" style="width:100%; background:#141414; border:1px solid #22d3ee; color:#22d3ee; font-family:'IBM Plex Mono',monospace; font-size:10px; padding:4px 6px; cursor:pointer; font-weight:700; outline:none;">
+                    </select>
+                    <div id="clima-detail-card" style="margin-top:4px; background:#0B141E; border:1px solid #1A365D; padding:6px; border-radius:2px;">
+                        <div style="color:#C4C4C0; text-align:center; padding:4px 0; font-size:9px;">Select a region or province for telemetry</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Barra Inferior Flotante de Acciones (Dock NASA FIRMS) -->
+        <div id="frd-bottom-dock">
+            <div class="frd-dock-grip" id="frd-bottom-dock-handle" title="Drag to move toolbar (double-click to center)">⋮⋮</div>
+            <button type="button" class="frd-dock-btn" id="btn-dock-measure" onclick="toggleMeasureTool()" title="NASA Polygon & Circle Measurement Tool">
+                <span class="icon">📐</span>
+                <span>MEASURE</span>
+            </button>
+            <button type="button" class="frd-dock-btn" onclick="recenterRD()" title="Zoom to Dominican Republic">
+                <span class="icon">📍</span>
+                <span>DR HOTSPOTS</span>
+            </button>
+            <button type="button" class="frd-dock-btn" id="btn-dock-pred" onclick="cyclePredictionMobile()" title="AI Wildfire Forecast (+24h/+48h/+72h)">
+                <span class="icon">🧠</span>
+                <span id="btn-dock-pred-lbl">PRED</span>
+            </button>
+            <button type="button" class="frd-dock-btn" id="btn-dock-layers" onclick="toggleRightPanel()" title="Toggle Layers and Filters">
+                <span class="icon">📊</span>
+                <span>LAYERS</span>
+            </button>
+            <button type="button" class="frd-dock-btn" id="btn-dock-clima" onclick="openClimaDrawer()" title="View Live Weather & Fire Risk (Global, Continental, DR)">
+                <span class="icon">🌤️</span>
+                <span>WEATHER NRT</span>
+            </button>
+            <button type="button" class="frd-dock-btn" id="btn-dock-timeline" onclick="toggleTimeline()" title="Satellite Timeline">
+                <span class="icon">🗓️</span>
+                <span>TIMELINE</span>
+            </button>
+            <button type="button" class="frd-dock-btn frd-dock-btn-excel" onclick="triggerExcelExport()" title="Export Visible Hotspots to Excel">
+                <span class="icon">⬇️</span>
+                <span>EXCEL</span>
+            </button>
+            <button type="button" class="frd-dock-btn frd-dock-btn-csv" id="btn-dock-csv" onclick="triggerCsvExport()" title="Export Visible Hotspots or Forecast to UTF-8 CSV">
+                <span class="icon">📥</span>
+                <span>CSV</span>
+            </button>
+        </div>
+
+        <!-- 6. Satellite Timeline Inferior -->
+        <div id="frd-timeline-bar">
+            <div class="frd-tl-month">NOVEMBER 2026</div>
+            <div class="frd-tl-dates" id="frd-timeline-dates">
+                <span class="frd-tl-day" onclick="pickDay('all', this)" title="View all days in period (7 days)">ALL</span>
+                <span class="frd-tl-sep">|</span>
+                <span class="frd-tl-day" onclick="pickDay(7, this)">7</span>
+                <span class="frd-tl-day" onclick="pickDay(8, this)">8</span>
+                <span class="frd-tl-day" onclick="pickDay(9, this)">9</span>
+                <span class="frd-tl-day" onclick="pickDay(10, this)">10</span>
+                <span class="frd-tl-day" onclick="pickDay(11, this)">11</span>
+                <span class="frd-tl-day" onclick="pickDay(12, this)">12</span>
+                <span class="frd-tl-day" onclick="pickDay(13, this)">13</span>
+                <span class="frd-tl-day active" onclick="pickDay(14, this)" title="Nov 14 (Today)">14 (TODAY)</span>
+                <span class="frd-tl-sep" style="color:#A6F014; font-weight:700;">| UPCOMING DAYS:</span>
+                <span class="frd-tl-day frd-tl-future" onclick="setFuturePrediction(24, this)" title="Forecast Next 24 Hours (Nov 15)">+24h (15)</span>
+                <span class="frd-tl-day frd-tl-future" onclick="setFuturePrediction(48, this)" title="Forecast Next 48 Hours (Nov 16)">+48h (16)</span>
+                <span class="frd-tl-day frd-tl-future" onclick="setFuturePrediction(72, this)" title="Forecast Next 72 Hours (Nov 17)">+72h (17)</span>
+            </div>
+            <div class="frd-tl-controls">
+                <button class="frd-tl-step-btn" onclick="stepDay(-1)" title="Previous day">◀</button>
+                <span class="frd-tl-active-txt" id="tl-current-label">14 NOV 2026 (1 DAY)</span>
+                <button class="frd-tl-step-btn" onclick="stepDay(1)" title="Next day">▶</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Inicializar motor Leaflet con aceleración GPU Canvas
+        var map = L.map('map_global', {
+            preferCanvas: true,
+            attributionControl: true,
+            zoomControl: false,
+            worldCopyJump: false,
+            minZoom: 3,
+            maxZoom: 18,
+            maxBounds: [[-70.0, -180.0], [78.0, 180.0]],
+            maxBoundsViscosity: 1.0
+        }).setView([__CENTER_LAT__, __CENTER_LON__], __ZOOM_LVL__);
+
+        // Notificar y remover cualquier loader de inicialización en la ventana principal
+        try {
+            var pWin = window.parent || window.top;
+            if (pWin && pWin.document) {
+                var pLdr = pWin.document.getElementById('frd-init-loader');
+                if (pLdr) {
+                    pLdr.style.opacity = '0';
+                    pLdr.style.pointerEvents = 'none';
+                    setTimeout(function() { if (pLdr && pLdr.parentNode) pLdr.remove(); }, 250);
+                }
+            }
+        } catch(e) {}
+
+        // Control de Zoom en Top-Left (Exacto a NASA FIRMS)
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        // Escala en Bottom-Left (Exacto a NASA FIRMS)
+        L.control.scale({ position: 'bottomleft', metric: true, imperial: true }).addTo(map);
+
+        // Capas Base Satelitales (con clave API CARTO oficial)
+        var cartoKey = "__CARTO_KEY__";
+        var esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19, updateWhenIdle: false, keepBuffer: 6, noWrap: false, attribution: 'Esri Satellite | NASA FIRMS'
+        });
+        var cartoDark = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=' + cartoKey, {
+            maxZoom: 19, updateWhenIdle: false, keepBuffer: 6, noWrap: false, attribution: '© CARTO Dark Matter'
+        });
+        var cartoLight = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key=' + cartoKey, {
+            maxZoom: 19, updateWhenIdle: false, keepBuffer: 6, noWrap: false, attribution: '© CARTO Positron'
+        });
+        var cartoVoyager = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=' + cartoKey, {
+            maxZoom: 19, updateWhenIdle: false, keepBuffer: 6, noWrap: false, attribution: '© CARTO Voyager'
+        });
+
+        var currentBase = esriSat;
+        currentBase.addTo(map);
+
+        function switchBaseLayer(key) {
+            map.removeLayer(currentBase);
+            document.querySelectorAll('.frd-base-btn').forEach(function(b) { b.classList.remove('active'); });
+            if (key === 'esri') {
+                currentBase = esriSat;
+                var b = document.getElementById('btn-base-esri'); if (b) b.classList.add('active');
+            } else if (key === 'dark') {
+                currentBase = cartoDark;
+                var b = document.getElementById('btn-base-dark'); if (b) b.classList.add('active');
+            } else if (key === 'carto') {
+                currentBase = cartoLight;
+                var b = document.getElementById('btn-base-carto'); if (b) b.classList.add('active');
+            } else if (key === 'voyager') {
+                currentBase = cartoVoyager;
+                var b = document.getElementById('btn-base-voyager'); if (b) b.classList.add('active');
+            }
+            currentBase.addTo(map);
+        }
+
+        // =========================================================================
+        // CONSTELACIÓN COMPLETA DE SATÉLITES NASA FIRMS & SISTEMA DE HUELLA FÍSICA
+        // =========================================================================
+        var v20Layer = L.layerGroup();
+        var v21Layer = L.layerGroup();
+        var vsnppLayer = L.layerGroup();
+        var modisLayer = L.layerGroup();
+        var h3GridLayer = L.layerGroup();
+        var allFireMarkers = [];
+
+        var modisData = __MODIS_DATA__;
+        var v20Data = __V20_DATA__;
+        var v21Data = __V21_DATA__;
+        var vsnppData = __VSNPP_DATA__;
+        var vsnppIsRetired = (!vsnppData || vsnppData.length === 0);
+        (function initSnppStatusUI() {
+            if (!vsnppIsRetired) return;
+            var tip = "NASA retired Suomi-NPP VIIRS NRT on Nov 2, 2026 (13:00 UTC). Historical 2012–2026 archive powers LOYO harmonization; live 375 m NRT continuity runs on NOAA-20 & NOAA-21.";
+            var row = document.getElementById("row-vsnpp");
+            var chk = document.getElementById("chk-vsnpp");
+            var sw = document.getElementById("swatch-vsnpp");
+            var lbl = document.getElementById("label-vsnpp");
+            var cnt = document.getElementById("count-vsnpp");
+            var note = document.getElementById("snpp-eol-note");
+            if (row) { row.title = tip; row.style.opacity = "0.82"; }
+            if (chk) { chk.checked = false; chk.disabled = true; chk.title = tip; }
+            if (sw) { sw.style.background = "#64748b"; }
+            if (lbl) { lbl.innerHTML = '<b>VIIRS Suomi-NPP</b> <span style="color:#94a3b8; font-size:9px;">(Archive 2012–2026)</span>'; }
+            if (cnt) {
+                cnt.innerText = "NRT EOL";
+                cnt.title = tip;
+                cnt.style.background = "#1e293b";
+                cnt.style.color = "#fbbf24";
+                cnt.style.border = "1px solid #fbbf24";
+                cnt.style.padding = "1px 5px";
+                cnt.style.fontSize = "8.5px";
+                cnt.style.fontWeight = "700";
+            }
+            if (note) { note.style.display = "block"; }
+        })();
+        var predictiveData = __PREDICTIVE_DATA__;
+        var predictionStatus = __PREDICTION_STATUS__;
+        var climatologyData = __CLIMATOLOGY_DATA__;
+        var predictionStatusEl = document.getElementById('prediction-status');
+        if (predictionStatusEl) predictionStatusEl.textContent = predictionStatus;
+        var provincesData = __PROVINCES_DATA__;
+        var domOutlineData = __DOM_OUTLINE__;
+        var predictiveLayer = L.layerGroup();
+        var provBordersLayer = L.layerGroup();
+        var domOutlineLayer = L.layerGroup();
+        var isPredictionMode = false;
+        var currentHorizon = 24;
+
+        var MONTH_NAMES_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var COLOR_RAMPS = {
+            ignis: {
+                label: 'IGNIS THERMAL',
+                v20: '#FF3B1D', v21: '#f97316', snpp: '#eab308', modis: '#A6F014', dot: '#FF3B1D',
+                critical: '#FF3B1D', high: '#FF7A00', mod: '#EAB308', gfa: '#22D3EE',
+                critGrad: 'radial-gradient(circle, #FFF3B0 10%, #FF551A 55%, #B91C1C 100%)',
+                highGrad: 'radial-gradient(circle, #FEF08A 10%, #FF7A00 60%, #C2410C 100%)',
+                modGrad: 'radial-gradient(circle, #FEF9C3 15%, #EAB308 75%)',
+                gfaGrad: 'radial-gradient(circle, #CFFAFE 15%, #22D3EE 75%)'
+            },
+            viridis: {
+                label: 'VIRIDIS (CVD-SAFE)',
+                v20: '#FDE725', v21: '#5EC962', snpp: '#21918C', modis: '#3B528B', dot: '#FDE725',
+                critical: '#FDE725', high: '#5EC962', mod: '#21918C', gfa: '#3B528B',
+                critGrad: 'radial-gradient(circle, #FFFFFF 10%, #FDE725 65%, #B5DE2B 100%)',
+                highGrad: 'radial-gradient(circle, #D8F5A2 10%, #5EC962 65%, #21918C 100%)',
+                modGrad: 'radial-gradient(circle, #99E9F2 15%, #21918C 75%)',
+                gfaGrad: 'radial-gradient(circle, #BAE6FD 15%, #3B528B 80%)'
+            },
+            cividis: {
+                label: 'CIVIDIS (CVD-SAFE)',
+                v20: '#FFEA46', v21: '#BC9F66', snpp: '#7C7B78', modis: '#00224E', dot: '#FFEA46',
+                critical: '#FFEA46', high: '#A69D75', mod: '#575D6D', gfa: '#38BDF8',
+                critGrad: 'radial-gradient(circle, #FFFBEB 10%, #FFEA46 65%, #D4B43B 100%)',
+                highGrad: 'radial-gradient(circle, #F5E6B8 10%, #A69D75 65%, #6B7280 100%)',
+                modGrad: 'radial-gradient(circle, #CBD5E1 15%, #575D6D 80%)',
+                gfaGrad: 'radial-gradient(circle, #E0F2FE 15%, #38BDF8 80%)'
+            }
+        };
+        var currentRampKey = 'ignis';
+
+        function getDrHistoricalContext(provName, dateStr) {
+            if (!climatologyData || !climatologyData.monthly_medians) return null;
+            var moNum = new Date().getMonth() + 1;
+            if (dateStr && /^\d{4}-\d{2}/.test(dateStr)) {
+                var parsedMo = parseInt(dateStr.slice(5, 7), 10);
+                if (parsedMo >= 1 && parsedMo <= 12) moNum = parsedMo;
+            }
+            var moKey = String(moNum);
+            var natMed = climatologyData.monthly_medians[moKey];
+            var provMed = null;
+            if (provName && climatologyData.province_medians) {
+                var cleanProv = String(provName).replace(/\s*\(DR\)\s*$/i, '').trim();
+                var pMap = climatologyData.province_medians[cleanProv];
+                if (pMap && pMap[moKey] != null) provMed = pMap[moKey];
+            }
+            var mult = Array.isArray(climatologyData.pi80_mult) && climatologyData.pi80_mult.length === 2
+                ? climatologyData.pi80_mult
+                : [0.740, 1.319];
+            var natMedNum = natMed != null ? Number(natMed) : null;
+            var pi80Lo = natMedNum != null ? Math.max(0, (natMedNum + 1) * Number(mult[0]) - 1) : null;
+            var pi80Hi = natMedNum != null ? ((natMedNum + 1) * Number(mult[1]) - 1) : null;
+            return {
+                monthLabel: MONTH_NAMES_EN[moNum - 1] || 'Nov',
+                nationalMedian: natMedNum,
+                provMedian: provMed != null ? Number(provMed) : null,
+                pi80Lo: pi80Lo,
+                pi80Hi: pi80Hi
+            };
+        }
+
+        // Popup Brutalista de Focos Térmicos (réplica NASA FIRMS)
+        function makePopup(d, isViirs) {
+            var sensorName = isViirs ? "VIIRS (375 m)" : "MODIS (1 km)";
+            var meterPct = Math.min(100, Math.max(8, (d.frp / 120.0) * 100));
+            var tempHtml = d.bright_k ?
+                '<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Brightness Temp:</span><b>' + d.bright_k + ' K (' + d.bright_c + ' °C)</b></div>' : '';
+            var provHtml = d.prov ?
+                '<div style="grid-column: span 2; margin-top:4px; padding-top:4px; border-top:1px dashed #334155; display:flex; justify-content:space-between; align-items:center;">' +
+                    '<span class="hud-label" style="color:#22d3ee;">🇩🇴 Province (DR)</span>' +
+                    '<span class="hud-val" style="color:#A6F014; font-size:11.5px; font-weight:700;">' + d.prov + '</span>' +
+                '</div>' : '';
+            var histCtx = (d.is_rd || d.prov) ? getDrHistoricalContext(d.prov, d.date) : null;
+            var pi80Txt = (histCtx && histCtx.pi80Lo != null && histCtx.pi80Hi != null)
+                ? (' · 80% PI [' + histCtx.pi80Lo.toFixed(1) + '–' + histCtx.pi80Hi.toFixed(1) + ']')
+                : '';
+            var histHtml = (histCtx && histCtx.nationalMedian != null) ?
+                '<div style="grid-column: span 2; margin-top:2px; padding:4px 6px; background:rgba(166,240,20,0.08); border-left:2px solid #A6F014; font-size:9.5px;">' +
+                    '<div class="hud-label" style="color:#A6F014;">Vs. 27-Yr Historical Median (' + histCtx.monthLabel + ')</div>' +
+                    '<div class="hud-val">DR National: ' + histCtx.nationalMedian.toFixed(1) + ' MODIS-eq/mo' + pi80Txt +
+                    (histCtx.provMedian != null ? (' · ' + d.prov + ': ' + histCtx.provMedian.toFixed(1) + '/mo') : '') + '</div>' +
+                '</div>' : '';
+            return '<div class="hud-card">' +
+                '<div class="hud-header">' +
+                    '<span style="color:#A6F014;">🛰️ ' + sensorName + '</span>' +
+                    '<span style="color:#C4C4C0;">Sat: ' + d.sat + '</span>' +
+                '</div>' +
+                '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">' +
+                    '<span style="color:#C4C4C0; font-size:10px;">Fire Radiative Power (FRP):</span>' +
+                    '<span style="font-size:17px; font-weight:800; color:#A6F014; text-shadow:0 0 10px rgba(166,240,20,0.4);">' + d.frp.toFixed(1) + ' <span style="font-size:11px;">MW</span></span>' +
+                '</div>' +
+                '<div class="hud-meter"><div class="hud-meter-fill" style="width:' + meterPct + '%;"></div></div>' +
+                '<div class="hud-grid">' +
+                    '<div><div class="hud-label">Coordinates</div><div class="hud-val">' + d.lat.toFixed(4) + ', ' + d.lon.toFixed(4) + '</div></div>' +
+                    '<div><div class="hud-label">Satellite Overpass</div><div class="hud-val">' + d.date + ' ' + d.time_utc + '</div></div>' +
+                    '<div><div class="hud-label">Detection</div><div class="hud-val">' + d.dn + '</div></div>' +
+                    '<div><div class="hud-label">Confidence</div><div class="hud-val">' + d.conf + '</div></div>' +
+                    (tempHtml ? tempHtml : '') +
+                    provHtml +
+                    histHtml +
+                '</div>' +
+            '</div>';
+        }
+
+        // Dibujar contorno RD y provincias oficiales
+        (function() {
+            // Contorno exterior de RD (cyan)
+            if (domOutlineData && domOutlineData.length > 0) {
+                domOutlineData.forEach(function(ring) {
+                    L.polyline(ring, {
+                        color: '#22d3ee', weight: 2.5, opacity: 0.95,
+                        fill: false, interactive: false
+                    }).addTo(domOutlineLayer);
+                });
+                domOutlineLayer.addTo(map);
+            }
+            // 32 Provincias de RD con hover tooltip (contornos oficiales)
+            if (provincesData) {
+                var sortedNames = Object.keys(provincesData).sort();
+                sortedNames.forEach(function(nombre) {
+                    var polis = provincesData[nombre];
+                    polis.forEach(function(pts) {
+                        var pl = L.polyline(pts, {
+                            color: '#22d3ee', weight: 1.2, opacity: 0.6, fill: false
+                        });
+                        if (pts.length > 40) {
+                            pl.bindTooltip(nombre, { sticky: true, direction: 'top', className: 'prov-tooltip' });
+                        }
+                        pl.addTo(provBordersLayer);
+                    });
+                });
+                provBordersLayer.addTo(map);
+            }
+        })();
+
+        function toggleProvBorders(show) {
+            if (show) { provBordersLayer.addTo(map); } else { map.removeLayer(provBordersLayer); }
+        }
+
+        // =========================================================================
+        // COBERTURA ORBITAL: MUNDO / CONTINENTES GLOBALES & REPÚBLICA DOMINICANA
+        // =========================================================================
+        var REGION_BOUNDS = {
+            'global': { center: [20.0, 0.0], zoom: 3, bounds: [[-45, -140], [60, 140]], name: 'Entire Planet' },
+            'rd': { center: [18.735, -70.162], zoom: 8, bounds: [[17.4, -72.1], [20.1, -68.3]], name: 'Dominican Republic' },
+            'north_america': { center: [40.0, -98.0], zoom: 4, bounds: [[15.0, -160.0], [65.0, -55.0]], name: 'North America' },
+            'central_america': { center: [16.5, -75.0], zoom: 5, bounds: [[7.0, -92.0], [24.0, -59.0]], name: 'Central America & Caribbean' },
+            'south_america': { center: [-15.0, -60.0], zoom: 4, bounds: [[-54.0, -82.0], [12.0, -34.0]], name: 'South America' },
+            'europe': { center: [50.0, 15.0], zoom: 4, bounds: [[35.0, -20.0], [65.0, 42.0]], name: 'Europe' },
+            'africa': { center: [2.0, 20.0], zoom: 4, bounds: [[-34.0, -18.0], [36.0, 50.0]], name: 'Africa' },
+            'asia': { center: [30.0, 100.0], zoom: 3, bounds: [[-10.0, 45.0], [65.0, 150.0]], name: 'Asia & Oceania' }
+        };
+
+        var REGION_CLIMA_DEFAULT = {
+            'global': 'Global · Central Amazon (Brazil)',
+            'rd': 'Santo Domingo',
+            'north_america': 'North America · California (USA)',
+            'central_america': 'Central America & Caribbean · Petén & Caribbean',
+            'south_america': 'South America · Amazon (Mato Grosso)',
+            'europe': 'Europe · Mediterranean Basin (Greece / Attica)',
+            'africa': 'Africa · Congo Basin & Miombo Savanna',
+            'asia': 'Asia & Oceania · Queensland & NSW (Australia)'
+        };
+
+        var currentRegionFilter = 'global';
+
+        function filterRegion(regKey) {
+            currentRegionFilter = regKey || 'global';
+            var reg = REGION_BOUNDS[currentRegionFilter] || REGION_BOUNDS['global'];
+
+            allFireMarkers.forEach(function(item) {
+                if (currentRegionFilter === 'global') {
+                    item._regionHidden = false;
+                } else if (currentRegionFilter === 'rd') {
+                    item._regionHidden = !item.d.is_rd;
+                } else {
+                    var b = reg.bounds;
+                    var inReg = (item.d.lat >= b[0][0] && item.d.lat <= b[1][0] && item.d.lon >= b[0][1] && item.d.lon <= b[1][1]);
+                    item._regionHidden = !inReg;
+                }
+            });
+
+            if (currentRegionFilter === 'rd') {
+                recenterRD();
+            } else if (currentRegionFilter === 'global') {
+                map.setView(reg.center, reg.zoom);
+            } else if (reg.bounds) {
+                map.fitBounds(reg.bounds, { padding: [30, 30], maxZoom: reg.zoom });
+            } else {
+                map.setView(reg.center, reg.zoom);
+            }
+
+            var selReg = document.getElementById('sel-region');
+            if (selReg && selReg.value !== currentRegionFilter) selReg.value = currentRegionFilter;
+
+            var targetClima = REGION_CLIMA_DEFAULT[currentRegionFilter];
+            if (targetClima && typeof changeClimaProvincia === "function") {
+                changeClimaProvincia(targetClima, false);
+            }
+
+            var slider = document.getElementById("frp-slider");
+            filterFRP(slider ? slider.value : 0);
+        }
+
+        // Compatibilidad retroactiva
+        function filterProvincia(provName) {
+            if (provName === 'all') filterRegion('global');
+            else filterRegion('rd');
+        }
+
+        // =========================================================================
+        // ESTACIÓN METEOROLÓGICA GLOBAL, CONTINENTAL Y POR PROVINCIAS RD (NRT)
+        // =========================================================================
+        var GLOBAL_CLIMA_STATIONS = {
+            "Global · Central Amazon (Brazil)": { lat: -9.85, lon: -56.08, zoom: 4, flag: "🌐", bbox: [[-18.0, -68.0], [-2.0, -48.0]] },
+            "North America · California (USA)": { lat: 38.58, lon: -121.49, zoom: 5, flag: "🌲", bbox: [[32.5, -124.5], [42.0, -114.0]] },
+            "North America · Alberta / BC (Canada)": { lat: 55.17, lon: -118.80, zoom: 5, flag: "🌲", bbox: [[49.0, -128.0], [60.0, -110.0]] },
+            "North America · Sierra Madre (Mexico)": { lat: 23.63, lon: -102.55, zoom: 5, flag: "🌲", bbox: [[16.0, -108.0], [29.0, -96.0]] },
+            "Central America & Caribbean · Petén & Caribbean": { lat: 16.92, lon: -89.89, zoom: 6, flag: "🌴", bbox: [[13.0, -92.0], [21.5, -75.0]] },
+            "South America · Amazon (Mato Grosso)": { lat: -12.64, lon: -55.42, zoom: 5, flag: "🔥", bbox: [[-18.0, -61.5], [-7.5, -50.0]] },
+            "South America · Gran Chaco & Pantanal": { lat: -19.50, lon: -57.50, zoom: 5, flag: "🔥", bbox: [[-25.0, -63.0], [-15.0, -54.0]] },
+            "Europe · Mediterranean Basin (Greece / Attica)": { lat: 38.05, lon: 23.80, zoom: 6, flag: "🏛️", bbox: [[35.0, 19.0], [41.5, 28.0]] },
+            "Europe · Iberian Peninsula (Spain / Portugal)": { lat: 40.20, lon: -4.50, zoom: 5, flag: "🏛️", bbox: [[36.0, -9.5], [43.8, 1.0]] },
+            "Africa · Congo Basin & Miombo Savanna": { lat: -8.80, lon: 21.50, zoom: 5, flag: "🦁", bbox: [[-16.0, 13.0], [-1.0, 30.0]] },
+            "Africa · Western Sahel": { lat: 12.65, lon: -7.99, zoom: 5, flag: "🦁", bbox: [[8.0, -16.0], [16.5, 5.0]] },
+            "Asia & Oceania · Queensland & NSW (Australia)": { lat: -23.50, lon: 146.00, zoom: 5, flag: "🌏", bbox: [[-34.0, 138.0], [-15.0, 153.5]] },
+            "Asia & Oceania · Eastern Siberia (Yakutia)": { lat: 62.03, lon: 129.73, zoom: 4, flag: "🌏", bbox: [[55.0, 110.0], [68.0, 145.0]] },
+            "Asia & Oceania · Kalimantan / Sumatra (Indonesia)": { lat: -1.50, lon: 113.50, zoom: 5, flag: "🌏", bbox: [[-4.5, 101.0], [2.5, 118.0]] }
+        };
+
+        var PROV_CENTROIDS = {
+            "Azua": { lat: 18.6236, lon: -70.8169, bbox: [[18.2587, -71.1613], [18.9885, -70.4725]] },
+            "Bahoruco": { lat: 18.4934, lon: -71.3070, bbox: [[18.3360, -71.6207], [18.6508, -70.9933]] },
+            "Barahona": { lat: 18.1862, lon: -71.1872, bbox: [[17.8466, -71.4237], [18.5259, -70.9507]] },
+            "Dajabón": { lat: 19.4335, lon: -71.5948, bbox: [[19.2179, -71.7765], [19.6490, -71.4131]] },
+            "Distrito Nacional": { lat: 18.4816, lon: -69.9376, bbox: [[18.4265, -69.9974], [18.5367, -69.8778]] },
+            "Duarte": { lat: 19.2688, lon: -70.0202, bbox: [[19.0383, -70.3636], [19.4993, -69.6767]] },
+            "El Seybo": { lat: 18.7893, lon: -69.0568, bbox: [[18.5273, -69.3286], [19.0512, -68.7851]] },
+            "Espaillat": { lat: 19.5139, lon: -70.3537, bbox: [[19.3136, -70.6139], [19.7142, -70.0934]] },
+            "Hato Mayor": { lat: 18.8166, lon: -69.4137, bbox: [[18.5220, -69.6378], [19.1112, -69.1895]] },
+            "Hermanas Mirabal": { lat: 19.3917, lon: -70.3520, bbox: [[19.2249, -70.4673], [19.5586, -70.2366]] },
+            "Independencia": { lat: 18.4103, lon: -71.6053, bbox: [[18.1359, -72.0098], [18.6847, -71.2008]] },
+            "La Altagracia": { lat: 18.5439, lon: -68.6357, bbox: [[18.1079, -68.9429], [18.9799, -68.3286]] },
+            "La Estrelleta": { lat: 18.9748, lon: -71.5964, bbox: [[18.6508, -71.8654], [19.2988, -71.3274]] },
+            "La Romana": { lat: 18.5308, lon: -68.9869, bbox: [[18.3959, -69.1218], [18.6657, -68.8520]] },
+            "La Vega": { lat: 19.0228, lon: -70.5984, bbox: [[18.6768, -70.9192], [19.3688, -70.2776]] },
+            "María Trinidad Sánchez": { lat: 19.4391, lon: -69.9933, bbox: [[19.1981, -70.2151], [19.6801, -69.7715]] },
+            "Monseñor Nouel": { lat: 18.9156, lon: -70.4081, bbox: [[18.7195, -70.5924], [19.1117, -70.2238]] },
+            "Monte Cristi": { lat: 19.7213, lon: -71.4525, bbox: [[19.5322, -71.7711], [19.9103, -71.1340]] },
+            "Monte Plata": { lat: 18.8309, lon: -69.8160, bbox: [[18.5718, -70.2512], [19.0900, -69.3809]] },
+            "Pedernales": { lat: 17.9193, lon: -71.5289, bbox: [[17.5456, -71.7768], [18.2930, -71.2810]] },
+            "Peravia": { lat: 18.3538, lon: -70.3799, bbox: [[18.2041, -70.5794], [18.5036, -70.1804]] },
+            "Puerto Plata": { lat: 19.7278, lon: -70.7972, bbox: [[19.5178, -71.2218], [19.9377, -70.3727]] },
+            "Samaná": { lat: 19.1861, lon: -69.4756, bbox: [[19.0089, -69.7928], [19.3633, -69.1584]] },
+            "San Cristóbal": { lat: 18.5166, lon: -70.1914, bbox: [[18.2314, -70.3788], [18.8017, -70.0040]] },
+            "San José de Ocoa": { lat: 18.6006, lon: -70.5250, bbox: [[18.4132, -70.7000], [18.7879, -70.3500]] },
+            "San Juan": { lat: 18.8953, lon: -71.2622, bbox: [[18.5996, -71.6332], [19.1911, -70.8912]] },
+            "San Pedro de Macorís": { lat: 18.5992, lon: -69.3484, bbox: [[18.3959, -69.6166], [18.8026, -69.0802]] },
+            "Santiago": { lat: 19.3384, lon: -70.8974, bbox: [[19.0256, -71.2470], [19.6511, -70.5477]] },
+            "Santiago Rodríguez": { lat: 19.3654, lon: -71.2919, bbox: [[19.1702, -71.5151], [19.5605, -71.0687]] },
+            "Santo Domingo": { lat: 18.5710, lon: -69.8427, bbox: [[18.4103, -70.1672], [18.7317, -69.5183]] },
+            "Sánchez Ramírez": { lat: 19.0052, lon: -70.1500, bbox: [[18.8548, -70.3923], [19.1556, -69.9078]] },
+            "Valverde": { lat: 19.5952, lon: -71.0242, bbox: [[19.4387, -71.1842], [19.7518, -70.8641]] }
+        };
+
+        var CLIMA_STATIONS = {};
+        Object.keys(GLOBAL_CLIMA_STATIONS).forEach(function(k) {
+            CLIMA_STATIONS[k] = GLOBAL_CLIMA_STATIONS[k];
+        });
+        Object.keys(PROV_CENTROIDS).forEach(function(k) {
+            var v = PROV_CENTROIDS[k];
+            CLIMA_STATIONS[k] = { lat: v.lat, lon: v.lon, bbox: v.bbox, zoom: 11, flag: "🇩🇴", scope: "rd" };
+        });
+
+        (function populateClimaSelector() {
+            var selClima = document.getElementById('sel-clima-provincia');
+            if (!selClima) return;
+            selClima.innerHTML = '';
+
+            var grpGlobal = document.createElement('optgroup');
+            grpGlobal.label = '🌐 ORBITAL COVERAGE & GLOBAL ZONES';
+            Object.keys(GLOBAL_CLIMA_STATIONS).forEach(function(k) {
+                var st = GLOBAL_CLIMA_STATIONS[k];
+                var opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = (st.flag || '🌍') + ' ' + k;
+                if (k === 'Global · Central Amazon (Brazil)') opt.selected = true;
+                grpGlobal.appendChild(opt);
+            });
+            selClima.appendChild(grpGlobal);
+
+            var grpRd = document.createElement('optgroup');
+            grpRd.label = '🇩🇴 DOMINICAN REPUBLIC (32 PROVINCES)';
+            var rdNames = (provincesData && Object.keys(provincesData).length > 0)
+                ? Object.keys(provincesData).sort()
+                : Object.keys(PROV_CENTROIDS).sort();
+            rdNames.forEach(function(nombre) {
+                var opt = document.createElement('option');
+                opt.value = nombre;
+                opt.textContent = '🇩🇴 ' + nombre;
+                grpRd.appendChild(opt);
+            });
+            selClima.appendChild(grpRd);
+        })();
+
+        var weatherMarker = null;
+        var _predLiveWxCache = {};
+
+        function computeTetensVpdKpa(tempC, rhPct) {
+            var t = Number(tempC), rh = Number(rhPct);
+            if (!isFinite(t) || !isFinite(rh)) return null;
+            rh = Math.min(100.0, Math.max(1.0, rh));
+            var es = 0.6108 * Math.exp((17.27 * t) / (t + 237.3));
+            return Math.max(0.0, es * (1.0 - rh / 100.0));
+        }
+
+        function computeFwiVanWagner(tNow, rhNow, wsNow, daily) {
+            var ffmc = 85.0, dmc = 18.0, dc = 90.0;
+            var Le = [11.5, 10.5, 9.2, 7.9, 6.8, 6.2, 6.5, 7.4, 8.7, 10.0, 11.2, 11.8];
+            var Lf = [-1.6, -1.6, -1.6, 0.9, 3.8, 5.8, 6.4, 5.0, 2.4, 0.4, -1.6, -1.6];
+            var mIdx = new Date().getMonth();
+            var nDays = (daily && daily.temperature_2m_max) ? daily.temperature_2m_max.length : 1;
+
+            function stepDay(T, H, W, rain) {
+                H = Math.min(100.0, Math.max(8.0, H));
+                var mo = 147.2 * (101.0 - ffmc) / (59.5 + ffmc);
+                if (rain > 0.5) {
+                    var rf = rain - 0.5;
+                    mo = mo <= 150.0 ? (mo + 42.5 * rf * Math.exp(-100.0 / (251.0 - mo)) * (1.0 - Math.exp(-6.93 / rf))) : (mo + 42.5 * rf * Math.exp(-100.0 / (251.0 - mo)) * (1.0 - Math.exp(-6.93 / rf)) + 0.0015 * Math.pow(mo - 150.0, 2) * Math.sqrt(rf));
+                    mo = Math.min(250.0, mo);
+                }
+                var ed = 0.942 * Math.pow(H, 0.679) + 11.0 * Math.exp((H - 100.0) / 10.0) + 0.18 * (21.1 - T) * (1.0 - Math.exp(-0.115 * H));
+                var ew = 0.618 * Math.pow(H, 0.753) + 10.0 * Math.exp((H - 100.0) / 10.0) + 0.18 * (21.1 - T) * (1.0 - Math.exp(-0.115 * H));
+                if (mo > ed) {
+                    var ko = 0.424 * (1.0 - Math.pow(H / 100.0, 1.7)) + 0.0694 * Math.sqrt(W) * (1.0 - Math.pow(H / 100.0, 8.0));
+                    var kd = ko * 0.581 * Math.exp(0.0365 * T);
+                    mo = ed + (mo - ed) * Math.pow(10.0, -kd);
+                } else if (mo < ew) {
+                    var k1 = 0.424 * (1.0 - Math.pow((100.0 - H) / 100.0, 1.7)) + 0.0694 * Math.sqrt(W) * (1.0 - Math.pow((100.0 - H) / 100.0, 8.0));
+                    var kw = k1 * 0.581 * Math.exp(0.0365 * T);
+                    mo = ew - (ew - mo) * Math.pow(10.0, -kw);
+                }
+                ffmc = Math.min(101.0, Math.max(0.0, 59.5 * (250.0 - mo) / (147.2 + mo)));
+
+                if (rain > 1.5) {
+                    var re = 0.92 * rain - 1.27;
+                    var m0 = 20.0 + Math.exp(5.6348 - dmc / 43.43);
+                    var b = dmc <= 33.0 ? (100.0 / (0.5 + 0.3 * dmc)) : (dmc <= 65.0 ? (14.0 - 1.3 * Math.log(dmc)) : (6.2 * Math.log(dmc) - 17.2));
+                    var mr = m0 + 1000.0 * re / (48.77 + b * re);
+                    var pr = 244.72 - 43.43 * Math.log(Math.max(1e-4, mr - 20.0));
+                    dmc = Math.max(0.0, pr);
+                }
+                var tDmc = Math.max(-1.1, T);
+                dmc += 100.0 * 1.894 * (tDmc + 1.1) * (100.0 - H) * Le[mIdx] * 1e-6;
+
+                if (rain > 2.8) {
+                    var rd = 0.83 * rain - 1.27;
+                    var q0 = 800.0 * Math.exp(-dc / 400.0) + 3.937 * rd;
+                    dc = Math.max(0.0, 400.0 * Math.log(800.0 / Math.max(1e-4, q0)));
+                }
+                var tDc = Math.max(-2.8, T);
+                dc += 0.5 * (0.36 * (tDc + 2.8) + Lf[mIdx]);
+
+                var mF = 147.2 * (101.0 - ffmc) / (59.5 + ffmc);
+                var fF = 91.9 * Math.exp(-0.1386 * mF) * (1.0 + Math.pow(mF, 5.31) / 4.93e7);
+                var isi = 0.208 * Math.exp(0.05039 * W) * fF;
+                var bui = dmc <= 0.4 * dc ? (0.8 * dmc * dc / Math.max(1e-4, dmc + 0.4 * dc)) : (dmc - (1.0 - 0.8 * dc / Math.max(1e-4, dmc + 0.4 * dc)) * (0.92 + Math.pow(0.0114 * dmc, 1.7)));
+                bui = Math.max(0.0, bui);
+                var fD = bui <= 80.0 ? (0.626 * Math.pow(bui, 0.809) + 2.0) : (1000.0 / (25.0 + 108.64 * Math.exp(-0.023 * bui)));
+                var bb = 0.1 * isi * fD;
+                var fwi = bb > 1.0 ? Math.exp(2.72 * Math.pow(0.434 * Math.log(bb), 0.647)) : bb;
+                return { fwi: Math.max(0.0, fwi), ffmc: ffmc, bui: bui };
+            }
+
+            var out = { fwi: 0.0, ffmc: ffmc, bui: 18.0 };
+            for (var i = 0; i < nDays; i++) {
+                var isLast = (i === nDays - 1);
+                var tDay = isLast ? tNow : ((daily.temperature_2m_max[i] != null) ? daily.temperature_2m_max[i] : tNow);
+                var hDay = isLast ? rhNow : Math.min(92, Math.max(35, rhNow + 4));
+                var rDay = (daily && daily.precipitation_sum && daily.precipitation_sum[i] != null) ? daily.precipitation_sum[i] : 0.0;
+                out = stepDay(tDay, hDay, wsNow, rDay);
+            }
+            return out;
+        }
+
+        function attachPredLiveWxLoader(layerObj, latVal, lonVal, fwiId, wxId, fallbackWind) {
+            if (!layerObj || !layerObj.on) return;
+            layerObj.on('popupopen', function() {
+                var cacheKey = latVal.toFixed(2) + ',' + lonVal.toFixed(2);
+                function paintLiveWx(wx) {
+                    var fEl = document.getElementById(fwiId);
+                    var wEl = document.getElementById(wxId);
+                    if (!wx) {
+                        if (fEl) fEl.innerText = 'GFA Climatology (NRT N/A)';
+                        if (wEl) wEl.innerText = fallbackWind || 'GFA 1° Cell';
+                        return;
+                    }
+                    if (fEl) fEl.innerText = wx.fwi.toFixed(1) + ' · ' + wx.vpd.toFixed(2) + ' kPa';
+                    if (wEl) wEl.innerText = wx.t.toFixed(1) + '°C · ' + Math.round(wx.rh) + '% · ' + wx.ws.toFixed(1) + ' km/h';
+                }
+                if (_predLiveWxCache[cacheKey]) {
+                    paintLiveWx(_predLiveWxCache[cacheKey]);
+                    return;
+                }
+                var wxUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + latVal.toFixed(4)
+                    + '&longitude=' + lonVal.toFixed(4)
+                    + '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m'
+                    + '&daily=temperature_2m_max,precipitation_sum&past_days=3&forecast_days=1&timezone=auto';
+                fetch(wxUrl)
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d && d.current && isFinite(Number(d.current.temperature_2m)) && isFinite(Number(d.current.relative_humidity_2m))) {
+                            var t = Number(d.current.temperature_2m);
+                            var rh = Number(d.current.relative_humidity_2m);
+                            var ws = isFinite(Number(d.current.wind_speed_10m)) ? Number(d.current.wind_speed_10m) : 10.0;
+                            var vpd = computeTetensVpdKpa(t, rh);
+                            var vw = computeFwiVanWagner(t, rh, ws, d.daily || null);
+                            var parsed = { t: t, rh: rh, ws: ws, vpd: vpd != null ? vpd : 0.0, fwi: vw.fwi };
+                            _predLiveWxCache[cacheKey] = parsed;
+                            paintLiveWx(parsed);
+                        } else {
+                            paintLiveWx(null);
+                        }
+                    })
+                    .catch(function() { paintLiveWx(null); });
+            });
+        }
+
+        function changeClimaProvincia(provName, shouldZoom) {
+            var name = provName || "Global · Central Amazon (Brazil)";
+            var info = CLIMA_STATIONS[name] || PROV_CENTROIDS[name] || CLIMA_STATIONS["Global · Central Amazon (Brazil)"];
+            var flag = (info && info.flag) ? info.flag : "🇩🇴";
+            var card = document.getElementById("clima-detail-card");
+            var selClimaEl = document.getElementById("sel-clima-provincia");
+            if (selClimaEl && selClimaEl.value !== name) {
+                selClimaEl.value = name;
+            }
+
+            if (card) {
+                card.innerHTML = '<div style="color:#22d3ee; padding:6px 0; text-align:center; font-size:10px;">📡 Querying Open-Meteo NRT (' + name + ')...</div>';
+            }
+
+            var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + info.lat + '&longitude=' + info.lon + '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&past_days=3&forecast_days=1&timezone=auto';
+
+            function renderData(t, rh, ws, wd, daily) {
+                var vw = computeFwiVanWagner(t, rh, ws, daily);
+                var fwi = vw.fwi;
+                var vpdVal = computeTetensVpdKpa(t, rh);
+                var vpd = vpdVal != null ? vpdVal : 0.0;
+                var tooltip = 'VPD: ' + vpd.toFixed(2) + ' kPa | FFMC: ' + vw.ffmc.toFixed(1) + ' | BUI: ' + vw.bui.toFixed(1);
+
+                var riskText = 'LOW';
+                var riskBg = '#A6F014';
+                var riskColor = '#0E0E0E';
+                if (fwi >= 25) { riskText = 'EXTREME'; riskBg = '#FF3B1D'; riskColor = '#FFFFFF'; }
+                else if (fwi >= 15) { riskText = 'HIGH'; riskBg = '#f97316'; riskColor = '#0E0E0E'; }
+                else if (fwi >= 7) { riskText = 'MODERATE'; riskBg = '#eab308'; riskColor = '#0E0E0E'; }
+
+                var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+                var dirCardinal = dirs[Math.round(wd / 22.5) % 16] || 'E';
+
+                var safeNameAttr = name.replace(/'/g, "\\'");
+                if (card) {
+                    card.innerHTML = 
+                        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; border-bottom:1px solid #1A365D; padding-bottom:3px;" title="' + tooltip + '">' +
+                            '<span style="font-weight:700; color:#22d3ee; font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:190px;">' + flag + ' ' + name.toUpperCase() + '</span>' +
+                            '<span class="clima-fwi-pill" style="background:' + riskBg + '; color:' + riskColor + ';">FWI ' + fwi.toFixed(1) + ' · ' + riskText + '</span>' +
+                        '</div>' +
+                        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:5px;" title="' + tooltip + '">' +
+                            '<div class="clima-metric-box">' +
+                                '<span class="clima-metric-lbl">🌡️ Temperature</span>' +
+                                '<span class="clima-metric-val" style="color:#A6F014;">' + t.toFixed(1) + ' °C</span>' +
+                            '</div>' +
+                            '<div class="clima-metric-box">' +
+                                '<span class="clima-metric-lbl">💧 Humidity · VPD</span>' +
+                                '<span class="clima-metric-val">' + Math.round(rh) + '% · ' + vpd.toFixed(1) + 'kPa</span>' +
+                            '</div>' +
+                            '<div class="clima-metric-box">' +
+                                '<span class="clima-metric-lbl">💨 Wind</span>' +
+                                '<span class="clima-metric-val">' + ws.toFixed(1) + ' km/h</span>' +
+                            '</div>' +
+                            '<div class="clima-metric-box">' +
+                                '<span class="clima-metric-lbl">🧭 Direction</span>' +
+                                '<span class="clima-metric-val" style="font-size:10.5px;">' + dirCardinal + ' (' + Math.round(wd) + '°)</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="display:flex; gap:5px;">' +
+                            '<button type="button" onclick="focusProvinciaMapa(\'' + safeNameAttr + '\')" style="flex:1; background:#0e253a; border:1px solid #22d3ee; color:#22d3ee; padding:4px 6px; font-size:9px; font-weight:700; cursor:pointer; font-family:\'IBM Plex Mono\',monospace;">📍 VIEW ON MAP</button>' +
+                            '<button type="button" onclick="changeClimaProvincia(\'' + safeNameAttr + '\', false)" style="background:#141414; border:1px solid #444; color:#aaa; padding:4px 8px; font-size:9px; cursor:pointer;" title="Refresh">🔄</button>' +
+                        '</div>';
+                }
+
+                if (shouldZoom) {
+                    focusProvinciaMapa(name);
+                }
+            }
+
+            fetch(url)
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.current) {
+                        var c = data.current;
+                        renderData(
+                            c.temperature_2m != null ? c.temperature_2m : 29.0,
+                            c.relative_humidity_2m != null ? c.relative_humidity_2m : 62,
+                            c.wind_speed_10m != null ? c.wind_speed_10m : 14.0,
+                            c.wind_direction_10m != null ? c.wind_direction_10m : 90,
+                            data.daily || null
+                        );
+                    } else {
+                        renderData(29.0, 62, 14.0, 90, null);
+                    }
+                })
+                .catch(function() {
+                    renderData(29.0, 62, 14.0, 90, null);
+                });
+        }
+
+        function focusProvinciaMapa(provName) {
+            var info = CLIMA_STATIONS[provName] || PROV_CENTROIDS[provName];
+            if (!info) return;
+
+            var targetZoom = info.zoom || 11;
+            if (info.bbox) {
+                map.fitBounds(info.bbox, { padding: [40, 40], maxZoom: targetZoom, duration: 1.0 });
+            } else {
+                map.setView([info.lat, info.lon], info.zoom || 10);
+            }
+
+            if (weatherMarker) {
+                map.removeLayer(weatherMarker);
+            }
+
+            var pinFlag = info.flag || '🌤️';
+            var iconHtml = '<div style="background:#0E0E0E; border:2px solid #22d3ee; color:#22d3ee; padding:3px 8px; font-family:\'IBM Plex Mono\',monospace; font-size:10px; font-weight:800; border-radius:3px; box-shadow:0 0 14px rgba(34,211,238,0.8); white-space:nowrap;">' + pinFlag + ' ' + provName + '</div>';
+            var customIcon = L.divIcon({ html: iconHtml, className: 'weather-pin', iconAnchor: [45, 15] });
+            weatherMarker = L.marker([info.lat, info.lon], { icon: customIcon }).addTo(map);
+
+            setTimeout(function() {
+                if (weatherMarker) {
+                    map.removeLayer(weatherMarker);
+                    weatherMarker = null;
+                }
+            }, 8000);
+        }
+
+        function openClimaDrawer() {
+            var panel = document.getElementById("frd-right-panel");
+            if (panel && panel.classList.contains("collapsed")) {
+                toggleRightPanel();
+            }
+            var climaSec = document.getElementById("sec-clima-provincias");
+            if (climaSec) {
+                var bodyEl = document.querySelector(".frd-panel-body");
+                if (bodyEl && bodyEl.scrollHeight > bodyEl.clientHeight) {
+                    bodyEl.scrollTop = climaSec.offsetTop - bodyEl.offsetTop;
+                }
+                climaSec.style.boxShadow = "0 0 15px rgba(34,211,238,0.8)";
+                setTimeout(function() { climaSec.style.boxShadow = "none"; }, 2000);
+            }
+        }
+
+        // Zoom a partir del cual se despliega la huella física real (scan × track) de cada sensor
+        var FOOTPRINT_ZOOM = 9;
+
+        function footprintHalfDeg(d, isViirs) {
+            var nominal = isViirs ? 0.375 : 1.0;
+            var scan  = (d.scan  && d.scan  > 0) ? d.scan  : nominal;
+            var track = (d.track && d.track > 0) ? d.track : nominal;
+            var dlat = track / 2 / 110.57;
+            var dlon = scan  / 2 / (111.32 * Math.max(Math.cos(d.lat * Math.PI / 180), 0.2));
+            return [dlat, dlon, scan, track];
+        }
+
+        function firmsColor(sensorKey, isViirs) {
+            var ramp = COLOR_RAMPS[currentRampKey] || COLOR_RAMPS.ignis;
+            if (sensorKey === 'v20') return ramp.v20;
+            if (sensorKey === 'v21') return ramp.v21;
+            if (sensorKey === 'vsnpp') return ramp.snpp;
+            if (sensorKey === 'modis') return ramp.modis;
+            return isViirs ? ramp.v20 : ramp.modis;
+        }
+
+        function setColorRamp(rampKey) {
+            if (!COLOR_RAMPS[rampKey]) return;
+            currentRampKey = rampKey;
+            var ramp = COLOR_RAMPS[rampKey];
+
+            ['ignis', 'viridis', 'cividis'].forEach(function(k) {
+                var btn = document.getElementById('ramp-btn-' + k);
+                if (btn) btn.classList.toggle('active', k === rampKey);
+            });
+
+            var sw20 = document.getElementById('swatch-v20');
+            if (sw20) sw20.style.background = ramp.v20;
+            var sw21 = document.getElementById('swatch-v21');
+            if (sw21) sw21.style.background = ramp.v21;
+            var swMod = document.getElementById('swatch-modis');
+            if (swMod) swMod.style.background = ramp.modis;
+            if (!vsnppIsRetired) {
+                var swSnpp = document.getElementById('swatch-vsnpp');
+                if (swSnpp) swSnpp.style.background = ramp.snpp;
+            }
+
+            allFireMarkers.forEach(function(item) {
+                var col = firmsColor(item.sensorKey, item.isViirs);
+                var px = item.isViirs ? 5 : 6;
+                if (item.sq && item.sq.setIcon) {
+                    item.sq.setIcon(L.divIcon({
+                        className: 'firms-dot',
+                        html: '<div style="width:' + px + 'px;height:' + px + 'px;background:' + col + ';"></div>',
+                        iconSize: [px, px],
+                        iconAnchor: [px / 2, px / 2]
+                    }));
+                }
+                if (item.rect && item.rect.setStyle) {
+                    item.rect.setStyle({ color: col, fillColor: col });
+                }
+            });
+
+            if (isPredictionMode && typeof applyPredictionData === 'function') {
+                applyPredictionData(currentHorizon || 24);
+            }
+            if (typeof updateLegendMode === 'function') {
+                updateLegendMode(isPredictionMode, currentHorizon || 24);
+            }
+        }
+
+        function addFirePoint(d, isViirs, layer, sensorKey) {
+            var col = firmsColor(sensorKey, isViirs);
+            var px = isViirs ? 5 : 6;
+            var fp = footprintHalfDeg(d, isViirs);
+
+            // 1) Cuadro rojo sólido de tamaño fijo — réplica exacta de NASA FIRMS Simple
+            var sq = L.marker([d.lat, d.lon], {
+                icon: L.divIcon({
+                    className: 'firms-dot',
+                    html: '<div style="width:' + px + 'px;height:' + px + 'px;background:' + col + ';"></div>',
+                    iconSize: [px, px],
+                    iconAnchor: [px / 2, px / 2]
+                }),
+                keyboard: false
+            });
+            sq.bindPopup(function() { return makePopup(d, isViirs); });
+
+            // 2) Huella física real (scan × track km) — aparece al acercar el zoom (zoom >= 9)
+            var rect = L.rectangle(
+                [[d.lat - fp[0], d.lon - fp[1]], [d.lat + fp[0], d.lon + fp[1]]],
+                { color: col, weight: 1, fillColor: col, fillOpacity: 0.35 }
+            );
+            rect.bindPopup(function() { return makePopup(d, isViirs); });
+
+            if (map.getZoom() >= FOOTPRINT_ZOOM) {
+                rect.addTo(layer);
+            } else {
+                sq.addTo(layer);
+            }
+
+            allFireMarkers.push({
+                d: d,
+                frp: d.frp,
+                layer: layer,
+                sq: sq,
+                rect: rect,
+                sensorKey: sensorKey,
+                isViirs: isViirs,
+                visible: true
+            });
+        }
+
+        // Renderizado de la constelación satelital completa
+        v20Data.forEach(function(d) { addFirePoint(d, true, v20Layer, "v20"); });
+        v21Data.forEach(function(d) { addFirePoint(d, true, v21Layer, "v21"); });
+        vsnppData.forEach(function(d) { addFirePoint(d, true, vsnppLayer, "vsnpp"); });
+        modisData.forEach(function(d) { addFirePoint(d, false, modisLayer, "modis"); });
+
+        v20Layer.addTo(map);
+        v21Layer.addTo(map);
+        vsnppLayer.addTo(map);
+        modisLayer.addTo(map);
+
+        // Inicializar con la ventana de 24 horas y cobertura global por defecto
+        setTimeout(function() {
+            if (map && map.invalidateSize) map.invalidateSize();
+            if (typeof filterRegion === "function") filterRegion('global');
+            if (typeof setTimePill === "function") setTimePill('24h');
+            if (typeof lockViewportScroll === "function") lockViewportScroll();
+        }, 150);
+
+        // Dinámica de huella física según nivel de zoom
+        function applyDetail() {
+            var near = map.getZoom() >= FOOTPRINT_ZOOM;
+            allFireMarkers.forEach(function(item) {
+                if (item.visible !== false) {
+                    if (near) {
+                        if (item.layer.hasLayer(item.sq)) item.layer.removeLayer(item.sq);
+                        if (!item.layer.hasLayer(item.rect)) item.layer.addLayer(item.rect);
+                    } else {
+                        if (item.layer.hasLayer(item.rect)) item.layer.removeLayer(item.rect);
+                        if (!item.layer.hasLayer(item.sq)) item.layer.addLayer(item.sq);
+                    }
+                }
+            });
+        }
+        map.on("zoomend", applyDetail);
+
+        // H3 Grid Geodésica Demostrativa para República Dominicana
+        for (var r_i = -2; r_i <= 2; r_i++) {
+            for (var c_i = -3; c_i <= 3; c_i++) {
+                var cLat = 18.9 + r_i * 0.42;
+                var cLon = -70.4 + c_i * 0.46;
+                var hexPoints = [];
+                for (var h = 0; h < 6; h++) {
+                    var angle = (h * 60 + 30) * Math.PI / 180;
+                    hexPoints.push([cLat + 0.18 * Math.sin(angle), cLon + 0.22 * Math.cos(angle)]);
+                }
+                L.polygon(hexPoints, {
+                    color: "#0284c7", weight: 1, fillOpacity: 0.05, dashArray: "2, 4"
+                }).bindTooltip("⬡ H3 Res. 7 Cell · DR (~3.84 km² local / ~5.16 km² global avg)", { sticky: true }).addTo(h3GridLayer);
+            }
+        }
+
+        // Control de Leyenda Satelital / Predictiva en Esquina Inferior Derecha
+        var legendContainer = null;
+        function updateLegendMode(isPred, horizon) {
+            if (!legendContainer) return;
+            var ramp = COLOR_RAMPS[currentRampKey] || COLOR_RAMPS.ignis;
+            if (!isPred) {
+                legendContainer.innerHTML =
+                    '<div style="font-weight:700; margin-bottom:5px; font-size:11px; color:#A6F014; border-bottom:2px solid #A6F014; padding-bottom:3px; text-transform:uppercase;">🔥 NASA FIRMS · ' + ramp.label + '</div>' +
+                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">' +
+                        '<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:' + ramp.v20 + '; box-shadow:0 0 6px ' + ramp.v20 + '; border:1px solid #fff;"></span>' +
+                        '<span><b>VIIRS NOAA-20</b> (375 m)</span>' +
+                    '</div>' +
+                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">' +
+                        '<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:' + ramp.v21 + '; box-shadow:0 0 6px ' + ramp.v21 + '; border:1px solid #fff;"></span>' +
+                        '<span><b>VIIRS NOAA-21</b> (375 m)</span>' +
+                    '</div>' +
+                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">' +
+                        '<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:' + ramp.modis + '; box-shadow:0 0 6px ' + ramp.modis + '; border:1px solid #fff;"></span>' +
+                        '<span><b>MODIS C6.1</b> (1 km · Terra & Aqua)</span>' +
+                    '</div>' +
+                    '<div style="font-size:9.5px; color:#C4C4C0; margin-top:4px;">🔍 Zoom ≥ 9 activates <b>true physical footprint (scan × track)</b></div>';
+            } else if (currentRegionFilter === 'global') {
+                legendContainer.innerHTML =
+                    '<div style="font-weight:700; margin-bottom:5px; font-size:11px; color:#A6F014; border-bottom:2px solid #A6F014; padding-bottom:3px; text-transform:uppercase;">🌍 NASA GFA + GEOS-FP · +' + (horizon || 24) + 'H (' + ramp.label + ')</div>' +
+                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">' +
+                        '<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:' + ramp.gfa + '; border:1px solid #fff;"></span>' +
+                        '<span><b>Hotspot / Climatology Cell (NASA FIRMS / GFA)</b></span>' +
+                    '</div>' +
+                    '<div style="font-size:9.5px; color:#C4C4C0; margin-top:4px;">GFA risk measured over years; progression driven by historical velocity and NASA wind heading. Does not represent a validated perimeter.</div>';
+            } else {
+                legendContainer.innerHTML =
+                    '<div style="font-weight:700; margin-bottom:5px; font-size:11px; color:#A6F014; border-bottom:2px solid #A6F014; padding-bottom:3px; text-transform:uppercase;">DR FORECAST · +' + (horizon || 24) + 'H (' + ramp.label + ')</div>' +
+                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">' +
+                        '<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:' + ramp.critGrad + '; box-shadow:0 0 8px ' + ramp.critical + '; border:1px solid #fff;"></span>' +
+                        '<span><b>Critical Risk / Active Fire</b> (\u2265 20%)</span>' +
+                    '</div>' +
+                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">' +
+                        '<span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:' + ramp.highGrad + '; box-shadow:0 0 6px ' + ramp.high + '; border:1px solid #fff;"></span>' +
+                        '<span><b>High Susceptibility</b> (6% – 19%)</span>' +
+                    '</div>' +
+                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">' +
+                        '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:' + ramp.modGrad + '; border:1px solid #fff;"></span>' +
+                        '<span><b>Moderate Ignition</b> (&lt; 6%)</span>' +
+                    '</div>' +
+                    '<div style="font-size:9.5px; color:#C4C4C0; margin-top:4px;">Historically evaluated probabilities; operational weather transfer not revalidated.</div>';
+            }
+        }
+        var legend = L.control({ position: "bottomright" });
+        legend.onAdd = function() {
+            legendContainer = L.DomUtil.create('div', 'map-legend');
+            updateLegendMode(false, 24);
+            return legendContainer;
+        };
+        legend.addTo(map);
+
+        // Inicializar NASA FIRMS Measure Tool
+        if (typeof initPrecisionCircleTool === "function") {
+            initPrecisionCircleTool(map, {
+                position: "topleft",
+                defaultRadiusKm: 25.0,
+                defaultMode: "PAN",
+                showTelemetryStrip: false,
+                collapsed: true,
+                getLayerData: function() {
+                    var visViirs = [];
+                    var visModis = [];
+                    allFireMarkers.forEach(function(item) {
+                        if (item.visible) {
+                            if (item.isViirs) visViirs.push(item.d);
+                            else visModis.push(item.d);
+                        }
+                    });
+                    return {
+                        viirs: visViirs.length > 0 ? visViirs : [].concat(v20Data, v21Data, vsnppData),
+                        modis: visModis.length > 0 ? visModis : modisData
+                    };
+                }
+            });
+            var ctrlTool = document.querySelector(".frd-firms-ctrl");
+            if (ctrlTool) ctrlTool.style.display = "none";
+        }
+
+        // =========================================================
+        // FUNCIONES INTERACTIVAS DEL PROTOTIPO NASA FIRMS BRUTALISTA
+        // =========================================================
+        map.on("mousemove", function(e) {
+            var latEl = document.getElementById("dyn-lat");
+            var lonEl = document.getElementById("dyn-lon");
+            if (latEl && lonEl) {
+                latEl.innerText = e.latlng.lat.toFixed(4);
+                lonEl.innerText = e.latlng.lng.toFixed(4);
+            }
+        });
+
+        function recenterRD() {
+            map.setView([18.735, -70.162], 8);
+        }
+
+        function jumpRegion(lat, lon, zoom) {
+            map.setView([lat, lon], zoom);
+        }
+
+        function toggleSensorLayer(sensor, visible) {
+            if (sensor === "v20") {
+                if (visible) v20Layer.addTo(map); else map.removeLayer(v20Layer);
+            } else if (sensor === "v21") {
+                if (visible) v21Layer.addTo(map); else map.removeLayer(v21Layer);
+            } else if (sensor === "vsnpp") {
+                if (visible) vsnppLayer.addTo(map); else map.removeLayer(vsnppLayer);
+            } else if (sensor === "modis") {
+                if (visible) modisLayer.addTo(map); else map.removeLayer(modisLayer);
+            } else if (sensor === "h3") {
+                if (visible) h3GridLayer.addTo(map); else map.removeLayer(h3GridLayer);
+            }
+            filterFRP(document.getElementById("frp-slider").value);
+        }
+
+        var currentTimeWindow = '24h';
+        var activeDay = null;
+
+        function setTimePill(winKey, btn) {
+            isPredictionMode = false;
+            var dockPredLbl = document.getElementById("btn-dock-pred-lbl");
+            if (dockPredLbl) dockPredLbl.innerText = "PRED";
+            var dockPredBtn = document.getElementById("btn-dock-pred");
+            if (dockPredBtn) {
+                dockPredBtn.classList.remove("active");
+                dockPredBtn.style.background = "";
+                dockPredBtn.style.color = "";
+            }
+            if (map.hasLayer(predictiveLayer)) map.removeLayer(predictiveLayer);
+            if (typeof updateLegendMode === "function") updateLegendMode(false);
+
+            currentTimeWindow = winKey;
+            activeDay = null;
+            document.querySelectorAll(".frd-time-pill").forEach(function(b) { b.classList.remove("active"); });
+            document.querySelectorAll(".frd-tl-day").forEach(function(el) { el.classList.remove("active"); });
+
+            if (btn) {
+                btn.classList.add("active");
+            } else {
+                var match = document.querySelector(".frd-time-pill[onclick*=\"'" + winKey + "'\"]");
+                if (match) match.classList.add("active");
+            }
+
+            var winLabels = {
+                'envivo': '🔴 LIVE (NRT SATELLITE PASS)',
+                'hoy': '🔴 LIVE (NRT SATELLITE PASS)',
+                '24h': '24 HOURS (1 DAY)',
+                '48h': '48 HOURS (2 DAYS)',
+                '72h': '72 HOURS (3 DAYS)',
+                '7d': '7 ORBITAL DAYS'
+            };
+            var labelText = winLabels[winKey] || (winKey.toUpperCase());
+            var dynWin = document.getElementById("dyn-win-label");
+            if (dynWin) dynWin.innerText = labelText;
+            var tlLabel = document.getElementById("tl-current-label");
+            if (tlLabel) tlLabel.innerText = labelText;
+
+            var slider = document.getElementById("frp-slider");
+            filterFRP(slider ? slider.value : 1.0);
+        }
+
+        function pickDay(day, btn) {
+            isPredictionMode = false;
+            if (map.hasLayer(predictiveLayer)) map.removeLayer(predictiveLayer);
+            if (typeof updateLegendMode === "function") updateLegendMode(false);
+
+            if (day === 'all') {
+                setTimePill('7d');
+                return;
+            }
+            activeDay = parseInt(day);
+            currentTimeWindow = null;
+            document.querySelectorAll(".frd-time-pill").forEach(function(b) { b.classList.remove("active"); });
+            document.querySelectorAll(".frd-tl-day").forEach(function(el) {
+                el.classList.remove("active");
+                if (parseInt(el.innerText) === activeDay) el.classList.add("active");
+            });
+
+            var labelText = activeDay + " NOV 2026 (DAY " + activeDay + ")";
+            var dynWin = document.getElementById("dyn-win-label");
+            if (dynWin) dynWin.innerText = labelText;
+            var tlLabel = document.getElementById("tl-current-label");
+            if (tlLabel) tlLabel.innerText = labelText;
+
+            var slider = document.getElementById("frp-slider");
+            filterFRP(slider ? slider.value : 1.0);
+        }
+
+        function buildPlumePolygon(lat, lon, distKm, bearingDeg) {
+            var rad = (bearingDeg != null ? bearingDeg : 250.0) * Math.PI / 180.0;
+            var ux = Math.sin(rad), uy = Math.cos(rad);
+            var px = Math.cos(rad), py = -Math.sin(rad);
+            var cosLat = Math.max(Math.cos(lat * Math.PI / 180.0), 0.25);
+            var halfW = Math.max(0.85, distKm * 0.30);
+            var pts = [];
+            for (var i = 0; i <= 18; i++) {
+                var t = (i / 18.0) * 2.0 * Math.PI;
+                var along = distKm * 0.55 * (1.0 - Math.cos(t));
+                var cross = halfW * Math.sin(t) * (0.35 + 0.65 * (along / Math.max(distKm, 1.0)));
+                var dx = along * ux + cross * px;
+                var dy = along * uy + cross * py;
+                pts.push([lat + dy / 111.0, lon + dx / (111.0 * cosLat)]);
+            }
+            return pts;
+        }
+
+        var predHudTimeout = null;
+
+        function showPredictionHUD(horizon, title, desc, progressPct, isDone) {
+            var hud = document.getElementById("pred-hud");
+            if (!hud) return;
+            var hEl = document.getElementById("pred-hud-horizon");
+            if (hEl) hEl.innerText = "+" + horizon + "H";
+            var tEl = document.getElementById("pred-hud-title");
+            if (tEl && title) tEl.innerHTML = title;
+            var dEl = document.getElementById("pred-hud-desc");
+            if (dEl && desc) dEl.innerText = desc;
+            var bar = document.getElementById("pred-hud-bar");
+            if (bar) bar.style.width = progressPct + "%";
+            var tag = document.getElementById("pred-hud-tag");
+            if (tag) {
+                if (isDone) {
+                    tag.innerText = "PROJECTED";
+                    tag.className = "pred-hud-tag ready";
+                } else {
+                    tag.innerText = "PROCESSING";
+                    tag.className = "pred-hud-tag";
+                }
+            }
+            hud.classList.remove("fade-out");
+            hud.style.display = "flex";
+
+            if (predHudTimeout) clearTimeout(predHudTimeout);
+            if (isDone) {
+                predHudTimeout = setTimeout(function() {
+                    hud.classList.add("fade-out");
+                    setTimeout(function() { hud.style.display = "none"; }, 400);
+                }, 3500);
+            }
+        }
+
+        function cyclePredictionMobile() {
+            var horizons = [24, 48, 72];
+            var nextIdx = 0;
+            if (isPredictionMode && typeof currentHorizon !== 'undefined' && currentHorizon) {
+                var curIdx = horizons.indexOf(currentHorizon);
+                nextIdx = (curIdx + 1) % horizons.length;
+            }
+            var h = horizons[nextIdx];
+            var predLbl = document.getElementById("btn-dock-pred-lbl");
+            if (predLbl) predLbl.innerText = "+" + h + "H";
+            var predBtn = document.getElementById("btn-dock-pred");
+            if (predBtn) {
+                predBtn.classList.add("active");
+                predBtn.style.background = "#A6F014";
+                predBtn.style.color = "#0E0E0E";
+            }
+            setFuturePrediction(h, null);
+        }
+
+        function setFuturePrediction(horizon, btn) {
+            isPredictionMode = true;
+            currentHorizon = horizon;
+            currentTimeWindow = null;
+            activeDay = null;
+
+            document.querySelectorAll(".frd-time-pill").forEach(function(b) { b.classList.remove("active"); });
+            document.querySelectorAll(".frd-tl-day").forEach(function(el) { el.classList.remove("active"); });
+            if (btn) btn.classList.add("active");
+
+            document.querySelectorAll(".frd-pill-pred, .frd-tl-future").forEach(function(el) {
+                if (el.innerText.indexOf(String(horizon)) !== -1) el.classList.add("active");
+            });
+            var dockPredLbl = document.getElementById("btn-dock-pred-lbl");
+            if (dockPredLbl) dockPredLbl.innerText = "+" + horizon + "H";
+            var dockPredBtn = document.getElementById("btn-dock-pred");
+            if (dockPredBtn) {
+                dockPredBtn.classList.add("active");
+                dockPredBtn.style.background = "#A6F014";
+                dockPredBtn.style.color = "#0E0E0E";
+            }
+
+            // 1. Mostrar feedback visual inmediato con radar activo y barra de carga
+            showPredictionHUD(
+                horizon,
+                "⚡ COMPUTING AI PREDICTIVE MODEL <span style='color:#A6F014;'>+" + horizon + "H</span>",
+                "Indexing H3 geodesic cells and coupling hourly wind vectors...",
+                30,
+                false
+            );
+
+            // 2. Si no hay datos predictivos en memoria, consultar la API en vivo
+            if (!predictiveData || predictiveData.length === 0) {
+                showPredictionHUD(
+                    horizon,
+                    "🛰️ SYNCHRONIZING PREDICTIVE TELEMETRY...",
+                    "Downloading AI satellite inference from /api/prediccion...",
+                    60,
+                    false
+                );
+                fetch('/api/prediccion')
+                    .then(function(res) { return res.json(); })
+                    .then(function(json) {
+                        if (json && json.predicciones && json.predicciones.length > 0) {
+                            predictiveData = json.predicciones;
+                            if (json.prediction_status) predictionStatus = json.prediction_status;
+                        }
+                        showPredictionHUD(
+                            horizon,
+                            "⚡ COUPLING MODEL TO SATELLITE MAP...",
+                            "Generating conical plumes and thermal fields at +" + horizon + "h...",
+                            85,
+                            false
+                        );
+                        setTimeout(function() {
+                            applyPredictionData(horizon, btn);
+                        }, 180);
+                    })
+                    .catch(function(err) {
+                        console.warn("Aviso cargando /api/prediccion:", err);
+                        applyPredictionData(horizon, btn);
+                    });
+            } else {
+                showPredictionHUD(
+                    horizon,
+                    "⚡ PROJECTING SCENARIOS AT <span style='color:#A6F014;'>+" + horizon + "H</span>...",
+                    "Computing atmospheric dispersion cones and ignition probability...",
+                    70,
+                    false
+                );
+                setTimeout(function() {
+                    applyPredictionData(horizon, btn);
+                }, 160);
+            }
+        }
+
+        function applyPredictionData(horizon, btn) {
+            var targetDate = new Date();
+            targetDate.setHours(targetDate.getHours() + horizon);
+            var dateStr = new Intl.DateTimeFormat('en-US', {
+                day: '2-digit', month: 'short', timeZone: 'America/Santo_Domingo'
+            }).format(targetDate);
+            var labelText = currentRegionFilter === 'global'
+                ? "🌍 GLOBAL NASA FORECAST +" + horizon + "H (" + dateStr + ")"
+                : "🔮 DR FORECAST / SCENARIO +" + horizon + "H (" + dateStr + ")";
+
+            var dynWin = document.getElementById("dyn-win-label");
+            if (dynWin) dynWin.innerText = labelText;
+            var tlLabel = document.getElementById("tl-current-label");
+            if (tlLabel) tlLabel.innerText = labelText;
+
+            if (typeof updateLegendMode === "function") updateLegendMode(true, horizon);
+
+            // Ocultar marcadores satelitales crudos
+            allFireMarkers.forEach(function(item) {
+                if (item.layer.hasLayer(item.sq)) item.layer.removeLayer(item.sq);
+                if (item.layer.hasLayer(item.rect)) item.layer.removeLayer(item.rect);
+            });
+
+            // Filtrar predicciones por región actual y horizonte (+24h / +48h / +72h)
+            var reg = REGION_BOUNDS[currentRegionFilter] || REGION_BOUNDS['global'];
+            var regFiltered = predictiveData.filter(function(p) {
+                if ((p.min_horizon || 24) > horizon) return false;
+                if (currentRegionFilter === 'global') return true;
+                if (currentRegionFilter === 'rd') return !!p.is_rd;
+                if (reg && reg.bounds) {
+                    var b = reg.bounds;
+                    return (p.lat >= b[0][0] && p.lat <= b[1][0] && p.lon >= b[0][1] && p.lon <= b[1][1]);
+                }
+                return true;
+            });
+
+            // Dibujar plumas cónicas, halos atmosféricos y núcleos luminosos IGNIS
+            predictiveLayer.clearLayers();
+            var factor = horizon / 24.0;
+            var countClusters = 0;
+            var maxAdvKm = 0.0;
+            var sumPredFrp = 0.0;
+            var windCoverage = 0;
+            var probabilityCoverage = 0;
+            var spreadCoverage = 0;
+            var activeFireCount = 0;
+            var modeledCellCount = 0;
+
+            regFiltered.forEach(function(p, pIdx) {
+                countClusters++;
+                var rawProb = horizon === 72 ? p.prob_72 : (horizon === 48 ? p.prob_48 : p.prob_24);
+                var validatedForHorizon = p.probability_validated === true ||
+                    (p.probability_validated && p.probability_validated[horizon] === true);
+                var hasProbability = validatedForHorizon && rawProb != null;
+                if (hasProbability) probabilityCoverage++;
+                var prob = hasProbability ? Number(rawProb) : null;
+                var probPct = hasProbability ? (prob <= 1.0 ? prob * 100 : prob) : null;
+                var isCritical = hasProbability && probPct >= 20.0;
+                var isHigh = hasProbability && probPct >= 6.0;
+                var isActiveOrigin = p.kind && (p.kind.toLowerCase().indexOf("foco activo") !== -1 || p.kind.indexOf("FIRMS") !== -1);
+                if (isActiveOrigin) activeFireCount++;
+                else if (p.kind && (p.kind.indexOf("Probabilidad GFA") !== -1 || p.kind.indexOf("Ignición Diaria") !== -1 || p.kind.indexOf("Global Fire Atlas") !== -1)) modeledCellCount++;
+
+                var ramp = COLOR_RAMPS[currentRampKey] || COLOR_RAMPS.ignis;
+                var alertaTxt = !hasProbability ? (isActiveOrigin ? "Observed Hotspot" : "No Probability") : "Calibrated P(event)";
+                var color = !hasProbability ? ramp.gfa : (isCritical ? ramp.critical : (isHigh ? ramp.high : ramp.mod));
+                var coreGrad = !hasProbability
+                    ? ramp.gfaGrad
+                    : (isCritical ? ramp.critGrad : (isHigh ? ramp.highGrad : ramp.modGrad));
+                var glowGrad = !hasProbability
+                    ? "radial-gradient(circle, rgba(34,211,238,0.36) 0%, rgba(34,211,238,0.08) 52%, rgba(34,211,238,0) 75%)"
+                    : (isCritical
+                    ? "radial-gradient(circle, rgba(255,59,29,0.52) 0%, rgba(255,59,29,0.16) 52%, rgba(255,59,29,0) 75%)"
+                    : (isHigh
+                        ? "radial-gradient(circle, rgba(255,122,0,0.44) 0%, rgba(255,122,0,0.12) 52%, rgba(255,122,0,0) 75%)"
+                        : "radial-gradient(circle, rgba(234,179,8,0.36) 0%, rgba(234,179,8,0.08) 52%, rgba(234,179,8,0) 75%)"));
+                var corePx = isActiveOrigin ? 11 : (isCritical ? 10 : (isHigh ? 9 : 7));
+
+                var bearField = 'bearing_' + horizon;
+                var bearDeg = p[bearField] != null ? p[bearField] : null;
+                var windBearField = 'wind_bearing_to_' + horizon;
+                var windBearDeg = p[windBearField] != null ? p[windBearField] : null;
+                if (bearDeg == null) bearDeg = windBearDeg;
+                var windField = 'wind_forecast_kmh_' + horizon;
+                var windKmh = p[windField] != null ? p[windField] : null;
+                if (windKmh != null) windCoverage++;
+                var spreadAvailable = p.show_spread_cone === true && p.spread_24 != null && bearDeg != null;
+                if (spreadAvailable) spreadCoverage++;
+                var distKm = spreadAvailable ? Number(p.spread_24 || 0) * factor : 0;
+                if (distKm > maxAdvKm) maxAdvKm = distKm;
+                sumPredFrp += (p.frp || 0);
+                var rad = bearDeg * Math.PI / 180.0;
+                var dLat = (distKm * Math.cos(rad)) / 111.0;
+                var dLon = (distKm * Math.sin(rad)) / (111.0 * Math.max(Math.cos(p.lat * Math.PI / 180.0), 0.25));
+                var targetLat = p.lat + dLat;
+                var targetLon = p.lon + dLon;
+
+                var windSlopeTxt = (windKmh != null ? (Number(windKmh).toFixed(1) + ' km/h') : 'no data') + (p.slope_deg != null ? (' · Slope ' + p.slope_deg + '°') : '');
+                var vectorLabel = spreadAvailable ? 'GFA + GEOS-FP scenario progression' : 'Forecast NASA wind';
+                var hasTemp = p.temp_c != null && isFinite(Number(p.temp_c));
+                var hasRh = p.rh_pct != null && isFinite(Number(p.rh_pct));
+                var hasFwi = p.fwi != null && isFinite(Number(p.fwi));
+                var vpdVal = (p.vpd_kpa != null && isFinite(Number(p.vpd_kpa)))
+                    ? Number(p.vpd_kpa)
+                    : (hasTemp && hasRh ? computeTetensVpdKpa(p.temp_c, p.rh_pct) : null);
+                var needsLiveWx = !(hasTemp && hasRh);
+                var predWxDomId = 'pred-wx-' + horizon + '-' + pIdx;
+                var predFwiDomId = 'pred-fwi-' + horizon + '-' + pIdx;
+
+                var fwiVpdTxt = (hasFwi ? Number(p.fwi).toFixed(1) : '—') + ' · ' + (vpdVal != null ? (vpdVal.toFixed(2) + ' kPa') : '—');
+                var surfaceWxTxt = (hasTemp ? (Number(p.temp_c).toFixed(1) + '°C') : '')
+                    + (hasTemp && hasRh ? ' · ' : '')
+                    + (hasRh ? (Math.round(Number(p.rh_pct)) + '%') : '')
+                    + ((hasTemp || hasRh) && windSlopeTxt ? ' · ' : '')
+                    + (windSlopeTxt || '—');
+
+                var wxRows = needsLiveWx
+                    ? ('<div><div class="hud-label">FWI / VPD Index</div><div class="hud-val" id="' + predFwiDomId + '">Syncing Open-Meteo…</div></div>' +
+                       '<div><div class="hud-label">Weather / Terrain</div><div class="hud-val" id="' + predWxDomId + '">' + (windSlopeTxt || 'Loading NRT…') + '</div></div>')
+                    : ('<div><div class="hud-label">FWI / VPD Index</div><div class="hud-val">' + fwiVpdTxt + '</div></div>' +
+                       '<div><div class="hud-label">Weather / Terrain</div><div class="hud-val">' + surfaceWxTxt + '</div></div>');
+
+                var probabilityBlock = hasProbability
+                    ? ('<span style="font-size:16px; font-weight:800; color:' + color + ';">' + probPct.toFixed(2) + '%</span>' +
+                       '<div class="hud-meter"><div class="hud-meter-fill" style="width:' + Math.min(100, Math.max(2, probPct)) + '%;"></div></div>')
+                    : '<span style="font-size:13px; font-weight:700; color:#22d3ee;">Not calculated</span>';
+                var frpBlock = (p.frp != null)
+                    ? ('<div><div class="hud-label">Observed FRP</div><div class="hud-val">' + Number(p.frp).toFixed(1) + ' MW</div></div>') : '';
+                var sourceBlock = p.weather_source
+                    ? ('<div><div class="hud-label">Valid Forecast</div><div class="hud-val">' + p.weather_source + (p.weather_valid_at ? (' · ' + p.weather_valid_at + ' UTC') : '') + '</div></div>') : '';
+                var scenarioBlock = p.scenario_note
+                    ? ('<div style="grid-column:1 / -1; color:#94a3b8; font-size:10px;">' + p.scenario_note + '</div>') : '';
+                var predHist = p.is_rd ? getDrHistoricalContext(p.terr, null) : null;
+                var predPi80Txt = (predHist && predHist.pi80Lo != null && predHist.pi80Hi != null)
+                    ? (' · 80% PI [' + predHist.pi80Lo.toFixed(1) + '–' + predHist.pi80Hi.toFixed(1) + ']')
+                    : '';
+                var predHistBlock = (predHist && predHist.nationalMedian != null)
+                    ? ('<div style="grid-column:1 / -1; border-left:2px solid #A6F014; padding-left:6px; margin-top:2px;">' +
+                        '<div class="hud-label" style="color:#A6F014;">Vs. 27-Yr Historical Median (' + predHist.monthLabel + ')</div>' +
+                        '<div class="hud-val">DR National: ' + predHist.nationalMedian.toFixed(1) + ' MODIS-eq/mo' + predPi80Txt +
+                        (predHist.provMedian != null ? (' · Cell Prov: ' + predHist.provMedian.toFixed(1) + '/mo') : '') + '</div></div>') : '';
+                var popupTitle = (!p.is_rd)
+                    ? ('GLOBAL NASA FORECAST +' + horizon + 'H · ' + dateStr)
+                    : ('DR FORECAST +' + horizon + 'H · ' + dateStr);
+                var popupHtml =
+                    '<div class="hud-card">' +
+                        '<div class="hud-header">' +
+                            '<span style="color:#A6F014;">' + popupTitle + '</span>' +
+                            '<span style="color:' + color + ';">' + alertaTxt + '</span>' +
+                        '</div>' +
+                        '<div style="font-size:10px; color:#22d3ee; margin-bottom:2px;">' + (p.kind || 'Probable AI Ignition') + '</div>' +
+                        '<div style="font-size:10.5px; color:#F2F2F0; font-weight:700; margin-bottom:6px;">📍 ' + (p.terr || 'Forest Zone') + '</div>' +
+                        '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">' +
+                            '<span class="hud-label">' + (hasProbability ? (p.probability_label || 'P(event) · historically calibrated') : 'Probability not validated for this horizon') + '</span>' +
+                            probabilityBlock +
+                        '</div>' +
+                        '<div class="hud-grid">' +
+                            '<div><div class="hud-label">' + vectorLabel + '</div><div class="hud-val">' + (bearDeg != null ? (Math.round(bearDeg) + '°') : 'no data') + (spreadAvailable ? (' · ' + distKm.toFixed(1) + ' km') : '') + '</div></div>' +
+                            '<div><div class="hud-label">GEOS-FP Wind +' + horizon + 'h</div><div class="hud-val">' + windSlopeTxt + '</div></div>' +
+                            frpBlock + sourceBlock + scenarioBlock + predHistBlock +
+                            wxRows +
+                        '</div>' +
+                    '</div>';
+
+                var tipText = hasProbability
+                    ? ('🔮 +' + horizon + 'h · ' + (p.terr || 'DR') + ' · P(event): ' + probPct.toFixed(2) + '%')
+                    : ('🔥 ' + (p.terr || 'Global') + ' · ' + (windKmh != null ? ('NASA wind ' + Number(windKmh).toFixed(1) + ' km/h') : 'no weather data'));
+
+                // Cono de propagación + vector para focos activos o celdas con viento y velocidad
+                if (spreadAvailable && (isActiveOrigin || p.is_rd || p.show_spread_cone) && distKm > 0) {
+                    var plumePts = buildPlumePolygon(p.lat, p.lon, distKm, bearDeg);
+                    var plume = L.polygon(plumePts, {
+                        color: color,
+                        weight: 1,
+                        opacity: 0.55,
+                        dashArray: isActiveOrigin ? null : "3, 3",
+                        fillColor: color,
+                        fillOpacity: isActiveOrigin ? 0.22 : 0.14
+                    });
+                    var vectorLine = L.polyline([[p.lat, p.lon], [targetLat, targetLon]], {
+                        color: color,
+                        weight: 1.3,
+                        opacity: 0.72
+                    });
+                    plume.bindPopup(popupHtml);
+                    vectorLine.bindPopup(popupHtml);
+                    if (needsLiveWx) {
+                        attachPredLiveWxLoader(plume, p.lat, p.lon, predFwiDomId, predWxDomId, windSlopeTxt);
+                        attachPredLiveWxLoader(vectorLine, p.lat, p.lon, predFwiDomId, predWxDomId, windSlopeTxt);
+                    }
+                    plume.addTo(predictiveLayer);
+                    vectorLine.addTo(predictiveLayer);
+                }
+
+                var showBadge = hasProbability && (p.is_rd ? (p.rank != null && p.rank < 8) : (p.rank != null && p.rank < 16));
+                var badgeHtml = showBadge
+                    ? '<span class="ignis-pred-badge" style="border-color:' + color + ';">' + probPct.toFixed(1) + '%</span>'
+                    : '';
+                var pulseHtml = isActiveOrigin
+                    ? '<span class="ignis-pred-pulse" style="border-color:' + color + ';"></span>'
+                    : '';
+                var windArrowHtml = (!hasProbability && isActiveOrigin && windBearDeg != null)
+                    ? '<span aria-label="Mean forecast wind direction" title="Forecast wind" style="position:absolute; left:13px; top:-2px; z-index:8; color:#22d3ee; font-size:18px; line-height:18px; font-weight:900; transform:rotate(' + Number(windBearDeg).toFixed(0) + 'deg); text-shadow:0 0 5px #082f49;">↑</span>'
+                    : '';
+
+                var iconHtml =
+                    '<div class="ignis-pred-beacon">' +
+                        '<span class="ignis-pred-glow" style="background:' + glowGrad + ';"></span>' +
+                        pulseHtml +
+                        windArrowHtml +
+                        '<span class="ignis-pred-core" style="width:' + corePx + 'px;height:' + corePx + 'px;background:' + coreGrad + ';box-shadow:0 0 8px ' + color + ';"></span>' +
+                        badgeHtml +
+                    '</div>';
+
+                var marker = L.marker([p.lat, p.lon], {
+                    icon: L.divIcon({
+                        className: 'ignis-pred-wrap',
+                        html: iconHtml,
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18]
+                    }),
+                    zIndexOffset: isActiveOrigin ? 600 : (isCritical ? 450 : 250)
+                });
+                marker.bindPopup(popupHtml).bindTooltip(tipText, { direction: 'top', offset: [0, -10] });
+                if (needsLiveWx) {
+                    attachPredLiveWxLoader(marker, p.lat, p.lon, predFwiDomId, predWxDomId, windSlopeTxt);
+                }
+                marker.addTo(predictiveLayer);
+            });
+
+            if (!map.hasLayer(predictiveLayer)) predictiveLayer.addTo(map);
+
+            // Centrar suavemente en República Dominicana SOLO si la región seleccionada es RD
+            if (countClusters > 0 && currentRegionFilter === 'rd') {
+                map.flyTo([18.7357, -70.1627], 8, { duration: 0.9 });
+            }
+
+            // Si estamos en móvil, colapsar el menú para mostrar el mapa satelital completo con la predicción
+            if (window.innerWidth <= 768) {
+                var rPanel = document.getElementById("frd-right-panel");
+                var vp = document.getElementById("frd-firms-viewport");
+                var tBtn = document.getElementById("frd-panel-toggle-btn");
+                if (rPanel) rPanel.classList.add("collapsed");
+                if (vp) vp.classList.add("panel-collapsed");
+                if (tBtn) tBtn.classList.remove("active");
+            }
+
+            var totEl = document.getElementById("dyn-total");
+            if (totEl) totEl.innerText = countClusters;
+            var totMobEl = document.getElementById("dyn-total-mob");
+            if (totMobEl) totMobEl.innerText = countClusters;
+            var statEl = document.getElementById("stat-focos");
+            if (statEl) statEl.innerText = countClusters;
+            var elMaxFrp = document.getElementById("stat-frp-max");
+            if (elMaxFrp) elMaxFrp.innerText = maxAdvKm.toFixed(1) + " km";
+            var elEnergy = document.getElementById("stat-energy");
+            if (elEnergy) elEnergy.innerText = (sumPredFrp / 1000.0).toFixed(2) + " GW";
+
+            if (countClusters > 0) {
+                var scopeTitle = currentRegionFilter === 'global'
+                    ? "🌍 GLOBAL NASA FORECAST <span style='color:#A6F014;'>+" + horizon + "H</span>"
+                    : "🔮 DR FORECAST <span style='color:#A6F014;'>+" + horizon + "H</span>";
+                var scopeSubtitle = currentRegionFilter === 'global'
+                    ? countClusters + " risk cells evaluated worldwide (DR + Global) · NASA GFA dispersion vectors"
+                    : countClusters + " risk cells evaluated in DR · Open-Meteo hourly vectors and DEM slope";
+                showPredictionHUD(
+                    horizon,
+                    scopeTitle,
+                    scopeSubtitle,
+                    100,
+                    true
+                );
+                if (predictionStatusEl) {
+                    predictionStatusEl.innerText = "🔮 AI +" + horizon + "H: " + countClusters + " cells analyzed · Active telemetry";
+                }
+            } else {
+                showPredictionHUD(
+                    horizon,
+                    "⚠️ NO PREDICTIVE HOTSPOTS",
+                    "No projected ignitions detected for this horizon in the area",
+                    100,
+                    true
+                );
+            }
+
+            if (currentRegionFilter === 'global' && predictionStatusEl) {
+                predictionStatusEl.innerText = 'GLOBAL NASA · FIRMS hotspots ' + activeFireCount + ' · GFA cells ' + modeledCellCount + ' · eval. prob ' + probabilityCoverage + ' · scenario spread ' + spreadCoverage + ' · GEOS-FP wind ' + windCoverage;
+            } else if (countClusters === 0 && predictionStatusEl) {
+                predictionStatusEl.innerText = predictionStatus + ' · No predictions available in this region/horizon.';
+            }
+        }
+
+        function stepDay(delta) {
+            var curr = (activeDay !== null) ? activeDay : 14;
+            var next = curr + delta;
+            if (next >= 7 && next <= 14) {
+                pickDay(next);
+            }
+        }
+
+        function filterFRP(val) {
+            var sliderLabel = document.getElementById("frp-slider-label");
+            if (sliderLabel) sliderLabel.innerText = val;
+            if (isPredictionMode) {
+                setFuturePrediction(currentHorizon || 24);
+                return;
+            }
+            var threshold = parseFloat(val);
+            var chkV20 = document.getElementById("chk-v20") ? document.getElementById("chk-v20").checked : true;
+            var chkV21 = document.getElementById("chk-v21") ? document.getElementById("chk-v21").checked : true;
+            var chkVSNPP = document.getElementById("chk-vsnpp") ? document.getElementById("chk-vsnpp").checked : true;
+            var chkModis = document.getElementById("chk-modis") ? document.getElementById("chk-modis").checked : true;
+            var near = map.getZoom() >= FOOTPRINT_ZOOM;
+
+            var maxHours = 24;
+            if (currentTimeWindow === 'envivo' || currentTimeWindow === 'hoy') maxHours = 12;
+            else if (currentTimeWindow === '24h') maxHours = 24;
+            else if (currentTimeWindow === '48h') maxHours = 48;
+            else if (currentTimeWindow === '72h') maxHours = 72;
+            else if (currentTimeWindow === '7d') maxHours = 168;
+
+            var visibleCount = 0;
+            var countV20 = 0;
+            var countV21 = 0;
+            var countVSNPP = 0;
+            var countModis = 0;
+            var maxFRP = 0.0;
+            var sumFRP = 0.0;
+
+            allFireMarkers.forEach(function(item) {
+                var sensorAllowed = false;
+                if (item.sensorKey === "v20" && chkV20) sensorAllowed = true;
+                if (item.sensorKey === "v21" && chkV21) sensorAllowed = true;
+                if (item.sensorKey === "vsnpp" && chkVSNPP) sensorAllowed = true;
+                if (item.sensorKey === "modis" && chkModis) sensorAllowed = true;
+
+                var timeMatch = true;
+                if (activeDay !== null) {
+                    timeMatch = (item.d && item.d.day === activeDay);
+                } else if (currentTimeWindow !== null) {
+                    timeMatch = (item.d && item.d.hours_ago !== undefined) ? (item.d.hours_ago <= maxHours) : true;
+                }
+
+                if (sensorAllowed && timeMatch && item.frp >= threshold && !item._regionHidden) {
+                    item.visible = true;
+                    visibleCount++;
+                    if (item.sensorKey === "v20") countV20++;
+                    if (item.sensorKey === "v21") countV21++;
+                    if (item.sensorKey === "vsnpp") countVSNPP++;
+                    if (item.sensorKey === "modis") countModis++;
+                    if (item.frp > maxFRP) maxFRP = item.frp;
+                    sumFRP += item.frp;
+
+                    if (near) {
+                        if (item.layer.hasLayer(item.sq)) item.layer.removeLayer(item.sq);
+                        if (!item.layer.hasLayer(item.rect)) item.layer.addLayer(item.rect);
+                    } else {
+                        if (item.layer.hasLayer(item.rect)) item.layer.removeLayer(item.rect);
+                        if (!item.layer.hasLayer(item.sq)) item.layer.addLayer(item.sq);
+                    }
+                } else {
+                    item.visible = false;
+                    if (item.layer.hasLayer(item.sq)) item.layer.removeLayer(item.sq);
+                    if (item.layer.hasLayer(item.rect)) item.layer.removeLayer(item.rect);
+                }
+            });
+
+            var totEl = document.getElementById("dyn-total");
+            if (totEl) totEl.innerText = visibleCount;
+            var totMobEl = document.getElementById("dyn-total-mob");
+            if (totMobEl) totMobEl.innerText = visibleCount;
+            var statEl = document.getElementById("stat-focos");
+            if (statEl) statEl.innerText = visibleCount;
+            var elV20 = document.getElementById("count-v20");
+            if (elV20) elV20.innerText = countV20;
+            var elV21 = document.getElementById("count-v21");
+            if (elV21) elV21.innerText = countV21;
+            var elVSNPP = document.getElementById("count-vsnpp");
+            if (elVSNPP && !vsnppIsRetired) elVSNPP.innerText = countVSNPP;
+            var elModis = document.getElementById("count-modis");
+            if (elModis) elModis.innerText = countModis;
+
+            var elMaxFrp = document.getElementById("stat-frp-max");
+            if (elMaxFrp) elMaxFrp.innerText = maxFRP.toFixed(1) + " MW";
+            var elEnergy = document.getElementById("stat-energy");
+            if (elEnergy) elEnergy.innerText = (sumFRP / 1000.0).toFixed(2) + " GW";
+        }
+
+        var FX_WIPE_ENGINE_SRC = [
+            '(function(w){',
+            'if(w.__fxWipeEngine&&w.__fxWipeEngine.ver===4)return;',
+            'var d=w.document,D=14,DUR=220,COLS=12,ROWS=8,TOTAL=(ROWS-1+COLS-1)*D+DUR;',
+            'var state={busy:false,pending:false,revealing:false,safetyTimer:null,cleanTimer:null,navTimer:null};',
+            'function syncFlags(){w.__fxWipeBusy=state.busy;w.__fxWipePendingReveal=state.pending;w.__fxWipeRevealing=state.revealing;}',
+            'function ensureDOM(){',
+            '  var oldSt=d.getElementById("fx-wipe-style");',
+            '  if(oldSt&&oldSt.textContent.indexOf("fx-idle")===-1){oldSt.remove();oldSt=null;}',
+            '  if(!oldSt&&d.head){',
+            '    var st=d.createElement("style");st.id="fx-wipe-style";',
+            '    st.textContent="#fx-wipe{position:fixed!important;inset:0!important;z-index:2147483647!important;display:grid!important;grid-template-columns:repeat(12,1fr)!important;grid-template-rows:repeat(8,1fr)!important;pointer-events:none!important;}#fx-wipe.fx-idle{visibility:hidden!important;opacity:0!important;}#fx-wipe>i{display:block!important;background:#0E0E0E;box-shadow:inset 0 0 0 1px #A6F014;transform:scale(0);transform-origin:center;will-change:transform;}#fx-wipe.fx-idle>i{transform:scale(0)!important;}#fx-wipe>i.odd{background:#A6F014;}";',
+            '    d.head.appendChild(st);',
+            '  }',
+            '  var wipe=d.getElementById("fx-wipe");',
+            '  if(!wipe&&d.body){wipe=d.createElement("div");wipe.id="fx-wipe";wipe.className="fx-idle";wipe.setAttribute("aria-hidden","true");d.body.appendChild(wipe);}',
+            '  if(!wipe)return[];',
+            '  var cells=Array.prototype.slice.call(wipe.querySelectorAll("i"));',
+            '  if(cells.length!==96){',
+            '    wipe.innerHTML="";',
+            '    for(var r=0;r<ROWS;r++){for(var c=0;c<COLS;c++){var cell=d.createElement("i");cell.dataset.r=String(r);cell.dataset.c=String(c);if((r+c)%2)cell.className="odd";cell.style.transform="scale(0)";wipe.appendChild(cell);}}',
+            '    cells=Array.prototype.slice.call(wipe.querySelectorAll("i"));',
+            '  }',
+            '  return cells;',
+            '}',
+            'function clearTimers(){',
+            '  if(state.safetyTimer){w.clearTimeout(state.safetyTimer);state.safetyTimer=null;}',
+            '  if(state.cleanTimer){w.clearTimeout(state.cleanTimer);state.cleanTimer=null;}',
+            '  if(state.navTimer){w.clearTimeout(state.navTimer);state.navTimer=null;}',
+            '}',
+            'function pushNav(url){',
+            '  try{',
+            '    w.scrollTo(0,0);',
+            '    [d.documentElement,d.body,d.querySelector(".stApp"),d.querySelector("[data-testid=\\"stAppViewContainer\\"]"),d.querySelector("[data-testid=\\"stMain\\"]"),d.querySelector("section.main")].forEach(function(el){if(el)el.scrollTop=0;});',
+            '    w.history.pushState({},"",url);',
+            '    w.dispatchEvent(new w.PopStateEvent("popstate"));',
+            '  }catch(e){w.location.href=url;}',
+            '}',
+            'function revealNow(){',
+            '  if(!state.pending||state.revealing)return;',
+            '  state.revealing=true;syncFlags();',
+            '  if(state.safetyTimer){w.clearTimeout(state.safetyTimer);state.safetyTimer=null;}',
+            '  var cells=ensureDOM(),anims=[];',
+            '  var wipe=d.getElementById("fx-wipe");',
+            '  if(wipe){wipe.classList.remove("fx-idle");}',
+            '  cells.forEach(function(cell){',
+            '    try{cell.getAnimations().forEach(function(a){a.cancel();});}catch(e){}',
+            '    cell.style.transform="scale(1.05)";',
+            '  });',
+            '  if(wipe){void wipe.offsetWidth;}',
+            '  cells.forEach(function(cell){',
+            '    var r=Number(cell.dataset.r||0),c=Number(cell.dataset.c||0);',
+            '    var a=cell.animate([{transform:"scale(1.05)"},{transform:"scale(0)"}],{duration:DUR,delay:(COLS-1-c+ROWS-1-r)*D,easing:"steps(4)",fill:"forwards"});',
+            '    if(a)anims.push(a);',
+            '  });',
+            '  var cleaned=false;',
+            '  function finishCleanup(){',
+            '    if(cleaned)return;cleaned=true;',
+            '    if(state.cleanTimer){w.clearTimeout(state.cleanTimer);state.cleanTimer=null;}',
+            '    ensureDOM().forEach(function(cell){try{cell.getAnimations().forEach(function(a){a.cancel();});}catch(e){}cell.style.removeProperty("transform");cell.style.transform="scale(0)";});',
+            '    var wipeEnd=d.getElementById("fx-wipe");',
+            '    if(wipeEnd){wipeEnd.classList.add("fx-idle");void wipeEnd.offsetWidth;}',
+            '    state.busy=false;state.pending=false;state.revealing=false;syncFlags();',
+            '  }',
+            '  if(anims.length&&typeof Promise!=="undefined"&&Promise.allSettled){Promise.allSettled(anims.map(function(a){return a.finished;})).then(finishCleanup);}',
+            '  state.cleanTimer=w.setTimeout(finishCleanup,TOTAL+120);',
+            '}',
+            'function coverAndRun(kind,url){',
+            '  if(state.busy)return false;',
+            '  clearTimers();state.busy=true;state.pending=true;state.revealing=false;syncFlags();',
+            '  var cells=ensureDOM();',
+            '  var wipe=d.getElementById("fx-wipe");',
+            '  if(wipe){wipe.classList.remove("fx-idle");void wipe.offsetWidth;}',
+            '  cells.forEach(function(cell){',
+            '    var r=Number(cell.dataset.r||0),c=Number(cell.dataset.c||0);',
+            '    try{cell.getAnimations().forEach(function(a){a.cancel();});}catch(e){}',
+            '    cell.style.transform="scale(0)";',
+            '    cell.animate([{transform:"scale(0)"},{transform:"scale(1.05)"}],{duration:DUR,delay:(r+c)*D,easing:"steps(4)",fill:"forwards"});',
+            '  });',
+            '  state.safetyTimer=w.setTimeout(function(){if(state.pending)revealNow();},5500);',
+            '  state.navTimer=w.setTimeout(function(){state.navTimer=null;if(kind==="nav")pushNav(url);else revealNow();},TOTAL);',
+            '  return true;',
+            '}',
+            'w.__fxWipeEngine={ver:4,coverAndNavigate:function(url){return coverAndRun("nav",url);},coverAndReveal:function(){return coverAndRun("reveal","");},revealNow:revealNow,pushNav:pushNav};',
+            'w.__fxRevealWipe=revealNow;syncFlags();',
+            '})(window);'
+        ].join('\n');
+
+        function getTopWipeEngine() {
+            try {
+                var topWin = window.top || window.parent || window;
+                var topDoc = topWin.document;
+                if (!topWin.__fxWipeEngine || topWin.__fxWipeEngine.ver !== 4) {
+                    var old = topDoc.getElementById('fx-wipe-engine-script');
+                    if (old) old.remove();
+                    var s = topDoc.createElement('script');
+                    s.id = 'fx-wipe-engine-script';
+                    s.textContent = FX_WIPE_ENGINE_SRC;
+                    (topDoc.head || topDoc.documentElement).appendChild(s);
+                }
+                return topWin.__fxWipeEngine || null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function revealPendingPixelWipe() {
+            var eng = getTopWipeEngine();
+            if (eng) eng.revealNow();
+        }
+
+        function navigateTop(ev, url) {
+            if (ev && ev.preventDefault) ev.preventDefault();
+            var isStreamlit = (window.location.search.indexOf('view=') !== -1) || (window.parent !== window);
+            var target = isStreamlit ? '/?view=landing' : '/';
+            try {
+                var pDoc = (window.parent && window.parent.document) || (window.top && window.top.document);
+                if (pDoc && pDoc.body && isStreamlit) {
+                    var a = pDoc.createElement('a');
+                    a.href = target;
+                    pDoc.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    return false;
+                }
+            } catch(e) {}
+            window.location.href = target;
+            return false;
+        }
+
+        function toggleRightPanel() {
+            var p = document.getElementById("frd-right-panel");
+            var vp = document.getElementById("frd-firms-viewport");
+            var collapsed = p.classList.toggle("collapsed");
+            if (vp) vp.classList.toggle("panel-collapsed", collapsed);
+            var btn = document.getElementById("frd-panel-toggle-btn");
+            if (btn) {
+                if (collapsed) {
+                    btn.classList.remove("active");
+                } else {
+                    btn.classList.add("active");
+                }
+            }
+        }
+
+        function minimizeRightPanel() {
+            var p = document.getElementById("frd-right-panel");
+            if (p) p.classList.toggle("minimized");
+        }
+
+        var _frdDragZ = 1005;
+        var _frdDraggablePanels = [];
+
+        function clampPanelToViewport(panelEl) {
+            if (!panelEl || !panelEl.style.left || !panelEl.style.top) return;
+            var curLeft = parseFloat(panelEl.style.left);
+            var curTop = parseFloat(panelEl.style.top);
+            if (isNaN(curLeft) || isNaN(curTop)) return;
+            var maxLeft = Math.max(6, window.innerWidth - panelEl.offsetWidth - 6);
+            var maxTop = Math.max(44, window.innerHeight - Math.min(panelEl.offsetHeight, 56) - 6);
+            panelEl.style.left = Math.min(Math.max(6, curLeft), maxLeft) + "px";
+            panelEl.style.top = Math.min(Math.max(44, curTop), maxTop) + "px";
+        }
+
+        function makeFloatingDraggable(panelEl, handleEl, opts) {
+            if (!panelEl || !handleEl) return;
+            opts = opts || {};
+            var viewport = document.getElementById("frd-firms-viewport") || document.body;
+            var origParent = panelEl.parentElement;
+            var origNextSibling = panelEl.nextSibling;
+            var dragging = false;
+            var movedDuringDrag = false;
+            var startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+            _frdDraggablePanels.push(panelEl);
+
+            function getPoint(ev) {
+                if (ev.touches && ev.touches.length) return ev.touches[0];
+                if (ev.changedTouches && ev.changedTouches.length) return ev.changedTouches[0];
+                return ev;
+            }
+
+            function onStart(ev) {
+                if (window.innerWidth <= 768) return;
+                if (ev.type === "mousedown" && ev.button !== 0) return;
+                if (ev.target && ev.target.closest && ev.target.closest("button, input, select, textarea, a, label")) {
+                    return;
+                }
+                var pt = getPoint(ev);
+                if (!pt) return;
+
+                ev.stopPropagation();
+                if (ev.cancelable) ev.preventDefault();
+
+                var rect = panelEl.getBoundingClientRect();
+                if (panelEl.parentElement !== viewport && (panelEl.classList.contains("leaflet-control") || panelEl.closest(".leaflet-control-container"))) {
+                    viewport.appendChild(panelEl);
+                }
+
+                panelEl.style.position = "absolute";
+                panelEl.style.left = rect.left + "px";
+                panelEl.style.top = rect.top + "px";
+                panelEl.style.right = "auto";
+                panelEl.style.bottom = "auto";
+                panelEl.style.transform = "none";
+                panelEl.style.margin = "0";
+
+                _frdDragZ += 1;
+                panelEl.style.zIndex = String(_frdDragZ);
+                panelEl.classList.add("frd-is-dragging");
+
+                if (typeof map !== "undefined" && map && map.dragging) {
+                    map.dragging.disable();
+                }
+
+                dragging = true;
+                movedDuringDrag = false;
+                startX = pt.clientX;
+                startY = pt.clientY;
+                startLeft = rect.left;
+                startTop = rect.top;
+            }
+
+            function onMove(ev) {
+                if (!dragging) return;
+                var pt = getPoint(ev);
+                if (!pt) return;
+
+                var dx = pt.clientX - startX;
+                var dy = pt.clientY - startY;
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) movedDuringDrag = true;
+
+                var maxLeft = Math.max(6, window.innerWidth - panelEl.offsetWidth - 6);
+                var maxTop = Math.max(44, window.innerHeight - Math.min(panelEl.offsetHeight, 56) - 6);
+                var newLeft = Math.min(Math.max(6, startLeft + dx), maxLeft);
+                var newTop = Math.min(Math.max(44, startTop + dy), maxTop);
+
+                panelEl.style.left = newLeft + "px";
+                panelEl.style.top = newTop + "px";
+
+                if (movedDuringDrag && opts.onMove) opts.onMove(newLeft, newTop);
+                if (ev.cancelable) ev.preventDefault();
+            }
+
+            function onEnd() {
+                if (!dragging) return;
+                dragging = false;
+                panelEl.classList.remove("frd-is-dragging");
+                if (typeof map !== "undefined" && map && map.dragging) {
+                    map.dragging.enable();
+                }
+            }
+
+            function onReset(ev) {
+                if (ev.target && ev.target.closest && ev.target.closest("button, input, select, textarea, a, label")) {
+                    return;
+                }
+                ev.stopPropagation();
+                if (origParent && panelEl.parentElement !== origParent) {
+                    if (origNextSibling && origNextSibling.parentElement === origParent) {
+                        origParent.insertBefore(panelEl, origNextSibling);
+                    } else {
+                        origParent.appendChild(panelEl);
+                    }
+                }
+                panelEl.style.position = "";
+                panelEl.style.left = "";
+                panelEl.style.top = "";
+                panelEl.style.right = "";
+                panelEl.style.bottom = "";
+                panelEl.style.transform = "";
+                panelEl.style.margin = "";
+                panelEl.style.zIndex = "";
+                if (opts.onReset) opts.onReset();
+            }
+
+            handleEl.addEventListener("mousedown", onStart);
+            handleEl.addEventListener("touchstart", onStart, { passive: false });
+            handleEl.addEventListener("dblclick", onReset);
+            document.addEventListener("mousemove", onMove);
+            document.addEventListener("touchmove", onMove, { passive: false });
+            document.addEventListener("mouseup", onEnd);
+            document.addEventListener("touchend", onEnd);
+            document.addEventListener("touchcancel", onEnd);
+        }
+
+        function initDraggableMenus() {
+            var vp = document.getElementById("frd-firms-viewport");
+            makeFloatingDraggable(
+                document.getElementById("frd-right-panel"),
+                document.getElementById("frd-right-panel-header"),
+                {
+                    onMove: function() { if (vp) vp.classList.add("panel-moved"); },
+                    onReset: function() { if (vp) vp.classList.remove("panel-moved"); }
+                }
+            );
+            var measureCtrl = document.querySelector(".frd-firms-ctrl");
+            var measureHeader = measureCtrl ? measureCtrl.querySelector(".frd-firms-header") : null;
+            if (measureCtrl && measureHeader) {
+                makeFloatingDraggable(measureCtrl, measureHeader, {});
+            }
+            var legendEl = document.querySelector(".map-legend");
+            if (legendEl) {
+                makeFloatingDraggable(legendEl, legendEl, {});
+            }
+            makeFloatingDraggable(
+                document.getElementById("frd-bottom-dock"),
+                document.getElementById("frd-bottom-dock-handle"),
+                {}
+            );
+            if (window.innerWidth <= 768) {
+                var rp = document.getElementById("frd-right-panel");
+                if (rp) rp.classList.add("collapsed");
+                if (vp) vp.classList.add("panel-collapsed");
+                var tBtn = document.getElementById("frd-panel-toggle-btn");
+                if (tBtn) tBtn.classList.remove("active");
+            }
+        }
+        initDraggableMenus();
+
+        function toggleMeasureTool() {
+            var ctrl = document.querySelector(".frd-firms-ctrl");
+            var dockBtn = document.getElementById("btn-dock-measure");
+            if (ctrl) {
+                if (ctrl.style.display === "none") {
+                    ctrl.style.display = "block";
+                    if (dockBtn) dockBtn.classList.add("active");
+                } else {
+                    ctrl.style.display = "none";
+                    if (dockBtn) dockBtn.classList.remove("active");
+                    var tip = document.querySelector(".frd-guide-tooltip");
+                    if (tip) tip.style.display = "none";
+                }
+            }
+        }
+
+        function toggleTimeline() {
+            var tl = document.getElementById("frd-timeline-bar");
+            tl.classList.toggle("hidden-tl");
+        }
+
+        function triggerExcelExport() {
+            var visPts = [];
+            allFireMarkers.forEach(function(item) {
+                if (item.visible) visPts.push(item.d);
+            });
+            var allPts = visPts.length > 0 ? visPts : [].concat(v20Data, v21Data, vsnppData, modisData);
+
+            if (allPts.length === 0) {
+                alert('No active hotspots detected to export.');
+                return;
+            }
+
+            var rows = '';
+            allPts.forEach(function(pt) {
+                var isV = (pt.sat && (pt.sat.indexOf('NOAA') !== -1 || pt.sat.indexOf('N') !== -1)) || (pt.bright_c && pt.bright_c > 50);
+                var style = isV ? 'Viirs' : 'Modis';
+                rows += '<Row ss:StyleID="' + style + '">' +
+                    '<Cell><Data ss:Type="String">' + (isV ? 'VIIRS (375 m)' : 'MODIS (1 km)') + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="String">' + (pt.sat || 'NASA') + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="Number">' + pt.lat + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="Number">' + pt.lon + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="Number">' + pt.frp + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="Number">' + (pt.bright_c || 0) + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="Number">' + (pt.scan || (isV ? 0.38 : 1.0)) + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="Number">' + (pt.track || (isV ? 0.38 : 1.0)) + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="String">' + (pt.date || '') + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="String">' + (pt.time_utc || '') + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="String">' + (pt.conf || 'Nominal') + '</Data></Cell>' +
+                    '<Cell><Data ss:Type="String">' + (pt.dn || '') + '</Data></Cell>' +
+                    '</Row>';
+            });
+
+            var xml = '<?xml version="1.0" encoding="UTF-8"?>' +
+                '<?mso-application progid="Excel.Sheet"?>' +
+                '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" ' +
+                'xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+                'xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
+                'xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+                '<Styles>' +
+                '<Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#0E0E0E" ss:Pattern="Solid"/></Style>' +
+                '<Style ss:ID="Viirs"><Interior ss:Color="#FFF0EE" ss:Pattern="Solid"/></Style>' +
+                '<Style ss:ID="Modis"><Interior ss:Color="#F4FBEA" ss:Pattern="Solid"/></Style>' +
+                '</Styles>' +
+                '<Worksheet ss:Name="Active Hotspots NASA FIRMS">' +
+                '<Table>' +
+                '<Row ss:StyleID="Header">' +
+                '<Cell><Data ss:Type="String">Sensor / Instrument</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Satellite</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Latitude</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Longitude</Data></Cell>' +
+                '<Cell><Data ss:Type="String">FRP (MW)</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Brightness Temp (°C)</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Scan Footprint (km)</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Track Footprint (km)</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Date</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Time UTC</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Confidence</Data></Cell>' +
+                '<Cell><Data ss:Type="String">Orbital Pass</Data></Cell>' +
+                '</Row>' +
+                rows +
+                '</Table></Worksheet></Workbook>';
+
+            var blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'Zyxilon_Explorer_NASA_FIRMS_Constellation_' + new Date().toISOString().slice(0, 10) + '.xls';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function _csvCell(v) {
+            if (v === null || v === undefined) return '';
+            var s = String(v).replace(/"/g, '""');
+            return /[",\n\r]/.test(s) ? ('"' + s + '"') : s;
+        }
+
+        function triggerCsvExport() {
+            var todayStr = new Date().toISOString().slice(0, 10);
+            if (isPredictionMode && predictiveData && predictiveData.length > 0) {
+                var horizon = currentHorizon || 24;
+                var reg = REGION_BOUNDS[currentRegionFilter] || REGION_BOUNDS['global'];
+                var filtered = predictiveData.filter(function(p) {
+                    if ((p.min_horizon || 24) > horizon) return false;
+                    if (currentRegionFilter === 'global') return true;
+                    if (currentRegionFilter === 'rd') return !!p.is_rd;
+                    if (reg && reg.bounds) {
+                        var b = reg.bounds;
+                        return (p.lat >= b[0][0] && p.lat <= b[1][0] && p.lon >= b[0][1] && p.lon <= b[1][1]);
+                    }
+                    return true;
+                });
+                var hdr = 'horizon_h,territory,is_dr,latitude,longitude,prob_pct,fwi,vpd_kpa,temp_c,rh_pct,wind_kmh,slope_deg,frp_mw,dr_month_median_27yr\n';
+                var body = filtered.map(function(p) {
+                    var rawProb = horizon === 72 ? p.prob_72 : (horizon === 48 ? p.prob_48 : p.prob_24);
+                    var pct = rawProb != null ? (Number(rawProb) <= 1 ? (Number(rawProb) * 100).toFixed(2) : Number(rawProb).toFixed(2)) : '';
+                    var wind = p['wind_forecast_kmh_' + horizon];
+                    var hCtx = p.is_rd ? getDrHistoricalContext(p.terr, null) : null;
+                    return [
+                        horizon,
+                        _csvCell(p.terr || ''),
+                        p.is_rd ? 'true' : 'false',
+                        p.lat,
+                        p.lon,
+                        pct,
+                        p.fwi != null ? p.fwi : '',
+                        p.vpd_kpa != null ? p.vpd_kpa : '',
+                        p.temp_c != null ? p.temp_c : '',
+                        p.rh_pct != null ? p.rh_pct : '',
+                        wind != null ? wind : '',
+                        p.slope_deg != null ? p.slope_deg : '',
+                        p.frp != null ? p.frp : '',
+                        (hCtx && hCtx.nationalMedian != null) ? hCtx.nationalMedian : ''
+                    ].join(',');
+                }).join('\n');
+                var bPred = new Blob(['\ufeff' + hdr + body + '\n'], { type: 'text/csv;charset=utf-8;' });
+                var uPred = URL.createObjectURL(bPred);
+                var aPred = document.createElement('a');
+                aPred.href = uPred;
+                aPred.download = 'Zyxilon_Explorer_Forecast_' + horizon + 'h_' + todayStr + '.csv';
+                document.body.appendChild(aPred);
+                aPred.click();
+                document.body.removeChild(aPred);
+                URL.revokeObjectURL(uPred);
+                return;
+            }
+
+            var visPts = [];
+            allFireMarkers.forEach(function(item) {
+                if (item.visible) visPts.push(item.d);
+            });
+            var allPts = visPts.length > 0 ? visPts : [].concat(v20Data, v21Data, vsnppData, modisData);
+            if (allPts.length === 0) {
+                alert('No active hotspots detected to export.');
+                return;
+            }
+            var csvHdr = 'territory,latitude,longitude,year,month,sensor,satellite,frp_mw,brightness_c,date,time_utc,confidence,dr_month_median_27yr,sensor_status\n';
+            var csvBody = allPts.map(function(pt) {
+                var isV = (pt.sat && (pt.sat.indexOf('NOAA') !== -1 || pt.sat.indexOf('N') !== -1)) || (pt.bright_c && pt.bright_c > 50);
+                var yr = (pt.date && pt.date.length >= 4) ? pt.date.slice(0, 4) : '';
+                var mo = (pt.date && pt.date.length >= 7) ? pt.date.slice(5, 7) : '';
+                var hCtx = pt.is_rd ? getDrHistoricalContext(pt.prov, pt.date) : null;
+                return [
+                    _csvCell(pt.prov ? (pt.prov + ' (DR)') : 'Global'),
+                    pt.lat,
+                    pt.lon,
+                    yr,
+                    mo,
+                    _csvCell(isV ? 'VIIRS_375m' : 'MODIS_1km'),
+                    _csvCell(pt.sat || 'NASA'),
+                    pt.frp,
+                    pt.bright_c != null ? pt.bright_c : '',
+                    _csvCell(pt.date || ''),
+                    _csvCell(pt.time_utc || ''),
+                    _csvCell(pt.conf || 'Nominal'),
+                    (hCtx && hCtx.nationalMedian != null) ? hCtx.nationalMedian : '',
+                    _csvCell('NRT_LIVE_NOAA20_NOAA21_MODIS')
+                ].join(',');
+            }).join('\n');
+            var blob = new Blob(['\ufeff' + csvHdr + csvBody + '\n'], { type: 'text/csv;charset=utf-8;' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'Zyxilon_Explorer_Hotspots_' + todayStr + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        setTimeout(function() { map.invalidateSize(); }, 50);
+        setTimeout(revealPendingPixelWipe, 120);
+        setTimeout(function() { map.invalidateSize(); }, 200);
+        setTimeout(function() { map.invalidateSize(); }, 500);
+        setTimeout(function() { map.invalidateSize(); }, 1200);
+        window.addEventListener('resize', function() {
+            map.invalidateSize();
+            _frdDraggablePanels.forEach(clampPanelToViewport);
+        });
+    </script>
+</body>
+</html>
