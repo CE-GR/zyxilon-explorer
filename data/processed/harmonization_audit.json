@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-20T03:18:08+00:00",
+  "generated_utc": "2026-11-20T03:43:47+00:00",
   "grid_degrees": 0.1,
   "active_cells_total": 465,
   "jump_metrics_counts_2007_2011_vs_2012_2016": {
@@ -18,7 +18,7 @@
     "2015_viirs_px": 7861,
     "2015_combined_raw": 9354
   },
-  "pi80_empirical_calibration": {
+  "pi80_validation": {
     "count_monthly_mult": [
       0.7403,
       1.3187
@@ -27,10 +27,11 @@
       0.5752,
       1.464
     ],
-    "coverage_on_loyo_residuals_pct": 79.3,
-    "note": "Empirical 10th/90th quantile calibration evaluated on LOYO residuals (not independent holdout validation)."
+    "strict_noncircular_oos_coverage_pct": 78.7,
+    "calibrated_loyo_coverage_pct": 79.3,
+    "note": "strict_noncircular_oos_coverage_pct fits q10/q90 strictly on years != y for every held-out year y (zero circularity; nominal target 80.0%)."
   },
-  "hierarchical_shrinkage_benchmark": {
+  "hierarchical_shrinkage_01deg_benchmark": {
     "method": "hierarchical_eb_shrinkage_loyo",
     "hierarchy": "0.1deg_cell -> 32_adm1_provinces -> national",
     "k_prov": 500.0,
@@ -45,5 +46,33 @@
     "aqua_drift_ratio_2012_2021": 0.1973,
     "aqua_drift_ratio_2025": 0.2241,
     "aqua_drift_ratio_2026": 0.2317
+  },
+  "h3_res7_multiscale_benchmark": {
+    "method": "h3_res7_multiscale_hierarchical_loyo",
+    "hierarchy": "H3_Res7 (~3.84 km2) -> H3_Res5 -> 32_adm1_provinces -> national",
+    "h3_resolution": 7,
+    "mean_cell_area_km2": 3.84,
+    "total_active_h3_res7_cells": 10058,
+    "overlap_h3_res7_cells": 9669,
+    "overlap_h3_res5_parents": 303,
+    "k_params": {
+      "k_prov": 300.0,
+      "k_h3_5": 150.0,
+      "k_h3_7": 200.0
+    },
+    "national_annual_median_err_pct": 5.27,
+    "national_monthly_mae": 15.37,
+    "national_monthly_r": 0.9622,
+    "national_net_bias_pct": 1.488,
+    "strict_noncircular_oos_pi80_coverage_pct": 78.7
+  },
+  "dr_daily_inference_latency": {
+    "model_class": "HistGradientBoostingClassifier + IsotonicRegression",
+    "n_features": 22,
+    "batch_cells": 465,
+    "single_horizon_24h_median_ms": 8.63,
+    "single_horizon_24h_p95_ms": 8.99,
+    "all_3_horizons_median_ms": 25.9,
+    "all_3_horizons_p95_ms": 27.14
   }
 }

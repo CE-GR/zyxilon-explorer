@@ -564,3 +564,123 @@ def hierarchical_shrinkage_loyo(cells: pd.DataFrame, k_prov: float = 500.0, k_ce
         "aqua_drift_ratio_2025": _ratio_for_years(ov["year"] == 2025),
         "aqua_drift_ratio_2026": _ratio_for_years(ov["year"] == 2026),
     }
+
+
+def strict_oos_pi80_coverage(
+    loyo_df: pd.DataFrame,
+    target_col: str = "modis",
+    pred_col: str = "pred",
+    q: tuple[float, float] = (0.10, 0.90),
+) -> float:
+    """Strictly non-circular nested out-of-sample 80% PI coverage: for each held-out
+    year y, fit quantile multipliers ONLY on years != y, then test coverage on year y."""
+    if loyo_df is None or loyo_df.empty:
+        return 0.0
+    hits = []
+    for _, row in loyo_df.iterrows():
+        other = loyo_df[loyo_df["year"] != row["year"]]
+        if other.empty:
+            continue
+        ratios = (other[target_col].to_numpy(float) + 1.0) / (other[pred_col].to_numpy(float) + 1.0)
+        q_lo, q_hi = np.quantile(ratios, [q[0], q[1]])
+        lo = max(0.0, (float(row[pred_col]) + 1.0) * float(q_lo) - 1.0)
+        hi = (float(row[pred_col]) + 1.0) * float(q_hi) - 1.0
+        hits.append(lo <= float(row[target_col]) <= hi)
+    return round(float(np.mean(hits)) * 100.0, 1) if hits else 0.0
+
+
+def h3_res7_hierarchical_loyo(
+    modis_points: pd.DataFrame,
+    viirs_events: pd.DataFrame,
+    k_prov: float = 300.0,
+    k_h3_5: float = 150.0,
+    k_h3_7: float = 200.0,
+) -> dict:
+    """True multi-scale geodesic Uber H3 Resolution 7 harmonization benchmark
+    (H3 Res 7 [~3.84 km²] -> H3 Res 5 -> 32 ADM1 Provinces -> National) evaluated
+    strictly out-of-sample via LOYO (2012–2026) with non-circular 80% PI verification."""
+    import h3
+    from pipeline import geo
+
+    if modis_points is None or modis_points.empty or viirs_events is None or viirs_events.empty:
+        return {"method": "h3_res7_multiscale_hierarchical_loyo", "total_active_h3_res7_cells": 0}
+
+    mp = modis_points[["lat", "lon", "date", "frp"]].copy()
+    ve = viirs_events[["lat", "lon", "date", "frp", "n_px"]].copy()
+    mp["h3_7"] = [h3.latlng_to_cell(float(a), float(b), 7) for a, b in zip(mp["lat"], mp["lon"])]
+    ve["h3_7"] = [h3.latlng_to_cell(float(a), float(b), 7) for a, b in zip(ve["lat"], ve["lon"])]
+    mp["month"] = pd.to_datetime(mp["date"]).dt.to_period("M").dt.to_timestamp()
+    ve["month"] = pd.to_datetime(ve["date"]).dt.to_period("M").dt.to_timestamp()
+
+    all_cells = sorted(set(mp["h3_7"]).union(set(ve["h3_7"])))
+    sample_areas = [h3.cell_area(c, unit="km^2") for c in all_cells]
+    mean_area_km2 = round(float(np.mean(sample_areas)), 2) if sample_areas else 3.84
+
+    m_h3 = mp.groupby(["month", "h3_7"]).agg(modis=("frp", "count"), modis_frp=("frp", "sum")).reset_index()
+    v_h3 = ve.groupby(["month", "h3_7"]).agg(
+        viirs_px=("n_px", "sum"), viirs_ev=("frp", "count"), viirs_ev_frp=("frp", "sum")
+    ).reset_index()
+    h3_df = pd.merge(m_h3, v_h3, on=["month", "h3_7"], how="outer").fillna(0)
+
+    uniq = pd.DataFrame({"h3_7": h3_df["h3_7"].unique()})
+    uniq["h3_5"] = [h3.cell_to_parent(c, 5) for c in uniq["h3_7"]]
+    coords = [h3.cell_to_latlng(c) for c in uniq["h3_7"]]
+    uniq["province"] = [geo.point_province(la, lo) or "Coastal/Border" for la, lo in coords]
+    h3_df = h3_df.merge(uniq, on="h3_7", how="left")
+    h3_df["year"] = h3_df["month"].dt.year.astype(int)
+
+    last_v = h3_df.loc[h3_df["viirs_px"] > 0, "month"].max()
+    ov = h3_df[(h3_df["month"] >= pd.Timestamp("2012-02-01")) & (h3_df["month"] <= last_v)].copy()
+
+    nat_rows = []
+    for y in sorted(ov["year"].unique()):
+        tr = ov[ov["year"] != y]
+        te = ov[ov["year"] == y].copy()
+        if tr.empty or te.empty:
+            continue
+        k_nat = float(tr["modis"].sum()) / max(float(tr["viirs_px"].sum()), 1.0)
+        pg = tr.groupby("province")[["modis", "viirs_px"]].sum()
+        k_p = (pg["modis"] + float(k_prov) * k_nat) / (pg["viirs_px"] + float(k_prov))
+
+        g5 = tr.groupby(["h3_5", "province"])[["modis", "viirs_px"]].sum().reset_index()
+        g5["kp"] = g5["province"].map(k_p).fillna(k_nat)
+        g5["k5"] = (g5["modis"] + float(k_h3_5) * g5["kp"]) / (g5["viirs_px"] + float(k_h3_5))
+        k5_map = g5.groupby("h3_5")["k5"].mean()
+
+        g7 = tr.groupby(["h3_7", "h3_5"])[["modis", "viirs_px"]].sum().reset_index()
+        g7["k5"] = g7["h3_5"].map(k5_map).fillna(k_nat)
+        g7["k7"] = (g7["modis"] + float(k_h3_7) * g7["k5"]) / (g7["viirs_px"] + float(k_h3_7))
+        k7_map = g7.set_index("h3_7")["k7"]
+
+        tr_k = tr["h3_7"].map(k7_map).fillna(tr["h3_5"].map(k5_map)).fillna(tr["province"].map(k_p)).fillna(k_nat)
+        cal = float(tr["modis"].sum()) / max(float((tr["viirs_px"] * tr_k).sum()), 1.0)
+        te_k = te["h3_7"].map(k7_map).fillna(te["h3_5"].map(k5_map)).fillna(te["province"].map(k_p)).fillna(k_nat)
+        te["pred"] = te["viirs_px"] * te_k * cal
+
+        nm = te.groupby("month", as_index=False)[["modis", "pred"]].sum()
+        nm["year"] = int(y)
+        nat_rows.append(nm)
+
+    dn = pd.concat(nat_rows, ignore_index=True)
+    ann = dn.groupby("year")[["modis", "pred"]].sum()
+    ann_err = (ann["pred"] - ann["modis"]).abs() / ann["modis"].clip(lower=1)
+    mae_m = float((dn["pred"] - dn["modis"]).abs().mean())
+    r_m = float(np.corrcoef(dn["pred"], dn["modis"])[0, 1]) if dn["pred"].std() > 0 else 0.0
+    bias_pct = 100.0 * float(ann["pred"].sum() - ann["modis"].sum()) / max(float(ann["modis"].sum()), 1.0)
+    strict_cov = strict_oos_pi80_coverage(dn, "modis", "pred")
+
+    return {
+        "method": "h3_res7_multiscale_hierarchical_loyo",
+        "hierarchy": f"H3_Res7 (~{mean_area_km2:.2f} km2) -> H3_Res5 -> 32_adm1_provinces -> national",
+        "h3_resolution": 7,
+        "mean_cell_area_km2": mean_area_km2,
+        "total_active_h3_res7_cells": int(len(all_cells)),
+        "overlap_h3_res7_cells": int(ov["h3_7"].nunique()),
+        "overlap_h3_res5_parents": int(ov["h3_5"].nunique()),
+        "k_params": {"k_prov": float(k_prov), "k_h3_5": float(k_h3_5), "k_h3_7": float(k_h3_7)},
+        "national_annual_median_err_pct": round(float(100.0 * ann_err.median()), 2),
+        "national_monthly_mae": round(mae_m, 2),
+        "national_monthly_r": round(r_m, 4),
+        "national_net_bias_pct": round(bias_pct, 3),
+        "strict_noncircular_oos_pi80_coverage_pct": strict_cov,
+    }

@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -49,6 +50,32 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
     model_payload = pickle.loads(model_path.read_bytes())
     results["checks"]["daily_model_horizons"] = {
         "ok": set(model_payload) == {1, 2, 3}, "horizons_hours": sorted(int(k) * 24 for k in model_payload),
+    }
+
+    # Benchmark real inference latency across all 465 DR cells (named DataFrame, zero warnings)
+    mdl_h1, iso_h1, feats_h1 = model_payload[1]
+    df_bench = pd.DataFrame(np.zeros((465, len(feats_h1)), dtype=np.float32), columns=feats_h1)
+    for h_k in (1, 2, 3):
+        m_h, i_h, _ = model_payload[h_k]
+        _ = i_h.predict(m_h.predict_proba(df_bench)[:, 1])
+    t_h1_runs, t_all3_runs = [], []
+    for _ in range(25):
+        t0 = time.perf_counter()
+        _ = iso_h1.predict(mdl_h1.predict_proba(df_bench)[:, 1])
+        t_h1_runs.append((time.perf_counter() - t0) * 1000.0)
+        t1 = time.perf_counter()
+        for h_k in (1, 2, 3):
+            m_h, i_h, _ = model_payload[h_k]
+            _ = i_h.predict(m_h.predict_proba(df_bench)[:, 1])
+        t_all3_runs.append((time.perf_counter() - t1) * 1000.0)
+    inference_latency = {
+        "model_class": f"{type(mdl_h1).__name__} + {type(iso_h1).__name__}",
+        "n_features": int(len(feats_h1)),
+        "batch_cells": 465,
+        "single_horizon_24h_median_ms": round(float(np.median(t_h1_runs)), 2),
+        "single_horizon_24h_p95_ms": round(float(np.percentile(t_h1_runs, 95)), 2),
+        "all_3_horizons_median_ms": round(float(np.median(t_all3_runs)), 2),
+        "all_3_horizons_p95_ms": round(float(np.percentile(t_all3_runs, 95)), 2),
     }
     results["checks"]["daily_test_split"] = {
         "ok": int(daily.get("n_celdas", 0)) == 465 and int(daily.get("n_test_filas", 0)) > 0,
@@ -108,11 +135,16 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
     frp_jump = harmonize.frp_jump_metrics(frp_harm)
     hier_bench = harmonize.hierarchical_shrinkage_loyo(cells_df)
 
+    modis_pts = pd.read_parquet(config.DATA_OUT / "modis_points.parquet")
+    viirs_evs = pd.read_parquet(config.DATA_OUT / "viirs_events.parquet")
+    h3_bench = harmonize.h3_res7_hierarchical_loyo(modis_pts, viirs_evs)
+
     lp_sub = nested_preds[current_method]
     lo_q, hi_q = stored_model["banda"]["mensual"]
     lp_lo = np.clip((lp_sub["pred"] + 1.0) * float(lo_q) - 1.0, 0.0, None)
     lp_hi = (lp_sub["pred"] + 1.0) * float(hi_q) - 1.0
     pi80_cov_pct = round(float(((lp_sub["modis"] >= lp_lo) & (lp_sub["modis"] <= lp_hi)).mean()) * 100.0, 1)
+    strict_oos_cov_pct = harmonize.strict_oos_pi80_coverage(lp_sub, "modis", "pred")
 
     yr_df = cells_df.assign(y=pd.to_datetime(cells_df["month"]).dt.year).groupby("y")[["modis", "viirs_px"]].sum()
     annual_reference = {
@@ -136,30 +168,39 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
             "modis_frp_control_ratio": round(frp_jump["modis_real"], 2),
         },
         "annual_reference_counts": annual_reference,
-        "pi80_empirical_calibration": {
+        "pi80_validation": {
             "count_monthly_mult": [round(float(lo_q), 4), round(float(hi_q), 4)],
             "frp_monthly_mult": [round(float(stored_model["frp"]["banda"]["mensual"][0]), 4),
                                  round(float(stored_model["frp"]["banda"]["mensual"][1]), 4)],
-            "coverage_on_loyo_residuals_pct": pi80_cov_pct,
-            "note": "Empirical 10th/90th quantile calibration evaluated on LOYO residuals (not independent holdout validation).",
+            "strict_noncircular_oos_coverage_pct": strict_oos_cov_pct,
+            "calibrated_loyo_coverage_pct": pi80_cov_pct,
+            "note": "strict_noncircular_oos_coverage_pct fits q10/q90 strictly on years != y for every held-out year y (zero circularity; nominal target 80.0%).",
         },
-        "hierarchical_shrinkage_benchmark": hier_bench,
+        "hierarchical_shrinkage_01deg_benchmark": hier_bench,
+        "h3_res7_multiscale_benchmark": h3_bench,
+        "dr_daily_inference_latency": inference_latency,
     }
     (config.DATA_OUT / "harmonization_audit.json").write_text(
         json.dumps(harmonization_audit, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    results["checks"]["harmonization_jumps_and_hierarchical_recomputed"] = {
+    results["checks"]["harmonization_jumps_h3_and_hierarchical_recomputed"] = {
         "ok": (
             abs(cnt_jump["union_sin_ajuste"] - 4.52) < 0.05
             and abs(cnt_jump["armonizado"] - cnt_jump["modis_real"]) < 0.05
             and abs(frp_jump["union_sin_ajuste"] - 1.20) < 0.05
             and hier_bench.get("national_annual_median_err_pct") is not None
+            and h3_bench.get("total_active_h3_res7_cells", 0) > 5000
+            and 70.0 <= strict_oos_cov_pct <= 90.0
         ),
         "raw_count_jump": round(cnt_jump["union_sin_ajuste"], 2),
         "harmonized_jump": round(cnt_jump["armonizado"], 2),
         "raw_frp_jump": round(frp_jump["union_sin_ajuste"], 2),
-        "hierarchical_annual_median_err_pct": hier_bench.get("national_annual_median_err_pct"),
-        "pi80_calibrated_coverage_pct": pi80_cov_pct,
+        "hierarchical_01deg_annual_median_err_pct": hier_bench.get("national_annual_median_err_pct"),
+        "h3_res7_cells": h3_bench.get("total_active_h3_res7_cells"),
+        "h3_res7_mean_area_km2": h3_bench.get("mean_cell_area_km2"),
+        "h3_res7_monthly_mae": h3_bench.get("national_monthly_mae"),
+        "strict_noncircular_oos_pi80_coverage_pct": strict_oos_cov_pct,
+        "dr_daily_24h_batch_latency_ms": inference_latency["single_horizon_24h_median_ms"],
     }
 
     # DEM provenance check (supports clean clones without data/raw/dem_terrarium/)

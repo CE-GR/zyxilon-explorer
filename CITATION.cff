@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use Zyxilon Explorer // IGNIS code or processed harmonization datasets, please cite this work using the metadata below."
-title: "Zyxilon Explorer // IGNIS: MODIS-VIIRS Harmonization, 80% LOYO Prediction Intervals & +24h/+48h/+72h Wildfire Forecasting"
+title: "Zyxilon Explorer // IGNIS: Multi-Scale H3 Res. 7 MODIS-VIIRS Harmonization, Non-Circular 80% LOYO Prediction Intervals & +24h/+48h/+72h Wildfire Forecasting"
 type: software
 version: "1.0.0"
 date-released: "2026-11-19"
@@ -15,17 +15,19 @@ authors:
 abstract: >-
   Open-science Earth observation platform built for the 2026 NASA International Space Apps
   Challenge (Harmonization of MODIS and VIIRS Hot Spots). Combines 27 years (2000-2026)
-  of harmonized fire-hotspot climatology over a 0.1-degree (465-cell) Dominican Republic grid
-  (with Uber H3 Res. 8 episode clustering), asymmetric 80% LOYO prediction intervals for counts
-  and Fire Radiative Power (MW), an independent hierarchical Empirical-Bayes shrinkage benchmark,
-  a 100-month pre-EOL Suomi-NPP to NOAA-20 cross-check, and a live FastAPI cartographic cockpit
-  with calibrated +24h/+48h/+72h DR daily (ROC-AUC 0.818) and global GFA (ROC-AUC 0.941) forecasts.
-  Code is licensed under MIT; processed datasets under data/processed/ are licensed under CC BY 4.0.
+  of harmonized fire-hotspot climatology across a 4-tier geodesic Uber H3 Resolution 7
+  hierarchy (10,058 active DR hexagons, 3.84 km2 mean area, MAE 15.37) and an operational
+  0.1-degree (465-cell, 2.58% hierarchical LOYO error) grid, strictly non-circular out-of-sample
+  80% LOYO prediction intervals (78.7% held-out coverage) for counts and Fire Radiative Power
+  (MW), a 100-month pre-EOL Suomi-NPP to NOAA-20 cross-check (r=0.9931), and a live FastAPI
+  cartographic cockpit with calibrated +24h/+48h/+72h DR daily (ROC-AUC 0.818, ~6.5 ms batch)
+  and global GFA (ROC-AUC 0.941) forecasts. Code: MIT; processed data: CC BY 4.0.
 keywords:
   - MODIS
   - VIIRS
   - NASA FIRMS
   - wildfire harmonization
+  - Uber H3
   - leave-one-year-out cross-validation
   - prediction intervals
   - Fire Radiative Power

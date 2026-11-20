@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-20T03:17:47+00:00",
+  "generated_utc": "2026-11-20T03:43:24+00:00",
   "checks": {
     "daily_source_hash_incendios": {
       "ok": true,
@@ -91,13 +91,17 @@
         2026
       ]
     },
-    "harmonization_jumps_and_hierarchical_recomputed": {
+    "harmonization_jumps_h3_and_hierarchical_recomputed": {
       "ok": true,
       "raw_count_jump": 4.52,
       "harmonized_jump": 0.91,
       "raw_frp_jump": 1.2,
-      "hierarchical_annual_median_err_pct": 2.58,
-      "pi80_calibrated_coverage_pct": 79.3
+      "hierarchical_01deg_annual_median_err_pct": 2.58,
+      "h3_res7_cells": 10058,
+      "h3_res7_mean_area_km2": 3.84,
+      "h3_res7_monthly_mae": 15.37,
+      "strict_noncircular_oos_pi80_coverage_pct": 78.7,
+      "dr_daily_24h_batch_latency_ms": 6.72
     },
     "dem_source_hashes_and_coverage": {
       "ok": true,

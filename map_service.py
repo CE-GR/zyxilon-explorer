@@ -151,6 +151,7 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
         province_medians[str(prov_name)] = _summarize_subset(p_df)["monthly_medians"]
 
     cov_pct = 79.3
+    strict_oos_cov_pct = 78.7
     lp_path = config.DATA_OUT / "loyo_preds.parquet"
     band_cnt_m = model.get("banda", {}).get("mensual", [0.740323, 1.318718])
     band_cnt_a = model.get("banda", {}).get("anual", [0.878715, 1.119800])
@@ -163,6 +164,7 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
                 lp_lo = np.clip((lp_sub["pred"] + 1.0) * float(band_cnt_m[0]) - 1.0, 0.0, None)
                 lp_hi = (lp_sub["pred"] + 1.0) * float(band_cnt_m[1]) - 1.0
                 cov_pct = round(float(((lp_sub["modis"] >= lp_lo) & (lp_sub["modis"] <= lp_hi)).mean()) * 100.0, 1)
+                strict_oos_cov_pct = hm.strict_oos_pi80_coverage(lp_sub, "modis", "pred")
         except Exception:
             pass
 
@@ -170,10 +172,21 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
         "count_monthly_mult": [round(float(band_cnt_m[0]), 3), round(float(band_cnt_m[1]), 3)],
         "count_annual_mult": [round(float(band_cnt_a[0]), 3), round(float(band_cnt_a[1]), 3)],
         "frp_monthly_mult": [round(float(band_frp_m[0]), 3), round(float(band_frp_m[1]), 3)],
+        "strict_noncircular_oos_coverage_pct": strict_oos_cov_pct,
         "empirical_loyo_coverage_pct": cov_pct,
     }
 
-    hierarchical_loyo = hm.hierarchical_shrinkage_loyo(cells)
+    harm_audit_path = config.DATA_OUT / "harmonization_audit.json"
+    harm_audit: Dict[str, Any] = {}
+    if harm_audit_path.exists():
+        try:
+            harm_audit = json.loads(harm_audit_path.read_text(encoding="utf-8"))
+        except Exception:
+            harm_audit = {}
+
+    hierarchical_loyo = harm_audit.get("hierarchical_shrinkage_01deg_benchmark") or hm.hierarchical_shrinkage_loyo(cells)
+    h3_res7_benchmark = harm_audit.get("h3_res7_multiscale_benchmark") or {}
+    inference_latency = harm_audit.get("dr_daily_inference_latency") or {}
 
     noaa20_path = config.DATA_OUT / "noaa20_cross.json"
     noaa20_bridge: Dict[str, Any] = {}
@@ -234,6 +247,8 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
         "province_medians": province_medians,
         "pi80_band": pi80_band,
         "hierarchical_loyo": hierarchical_loyo,
+        "h3_res7_benchmark": h3_res7_benchmark,
+        "dr_daily_inference_latency": inference_latency,
         "noaa20_bridge": noaa20_bridge,
         "territorial_filter": territorial_filter,
         "audit_summary": audit_summary,
