@@ -93,17 +93,12 @@ Optional Docker deployment is configured in `Dockerfile` and `docker-compose.yml
 
 ---
 
-## 4. Open-Science Reproducibility & Zenodo Archiving
+## 4. Open-Science Licensing & Citation
 
-This repository uses dual OSI / Open-Knowledge licensing to satisfy NASA Open Science & Space Apps Challenge guidelines:
+This repository uses dual OSI / Open-Knowledge licensing to comply with NASA Open Science & Space Apps Challenge guidelines:
 - **Software & Pipeline Code:** MIT License ([`LICENSE`](LICENSE))
 - **Processed Harmonized Datasets (`data/processed/`):** Creative Commons Attribution 4.0 International ([`DATA_LICENSE`](DATA_LICENSE))
-- **Machine-Readable Citation Metadata:** [`CITATION.cff`](CITATION.cff)
-
-To mint a permanent citable **Zenodo DOI**:
-1. Push the clean package (`release_open_science/`) to a public GitHub repository.
-2. Link the repository at [zenodo.org/account/settings/github](https://zenodo.org/account/settings/github/) and publish tag `v1.0.0` (keep hackathon submission baseline tagged separately from post-event open-science releases).
-3. Add the minted Zenodo DOI badge to this `README.md` header.
+- **Machine-Readable Citation Metadata:** [`CITATION.cff`](CITATION.cff) — click **"Cite this repository"** in GitHub's sidebar to export BibTeX or APA citations directly.
 
 ---
 
