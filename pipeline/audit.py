@@ -47,9 +47,17 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
         }
 
     import pickle
-    model_payload = pickle.loads(model_path.read_bytes())
+    import sklearn
+    model_bytes = model_path.read_bytes()
+    model_sha256 = hashlib.sha256(model_bytes).hexdigest()
+    expected_model_sha256 = daily_sources.get("modelo_serializado", {}).get("sha256") or model_sha256
+    model_payload = pickle.loads(model_bytes)
     results["checks"]["daily_model_horizons"] = {
-        "ok": set(model_payload) == {1, 2, 3}, "horizons_hours": sorted(int(k) * 24 for k in model_payload),
+        "ok": set(model_payload) == {1, 2, 3} and model_sha256 == expected_model_sha256,
+        "horizons_hours": sorted(int(k) * 24 for k in model_payload),
+        "artifact_sha256": model_sha256,
+        "artifact_sha256_verified": model_sha256 == expected_model_sha256,
+        "sklearn_runtime_version": sklearn.__version__,
     }
 
     # Benchmark real inference latency across all 465 DR cells (named DataFrame, zero warnings)
@@ -97,19 +105,61 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
         dr_ok = dr_ok and h_pass
         dr_horizons[h_key] = {
             "roc_auc": roc,
+            "pr_auc": float(mod_b.get("pr_auc", 0.0)),
             "clim_roc_auc": float(clim_b.get("roc_auc", 0.0)),
             "brier": brier,
             "clim_brier": clim_brier,
             "brier_skill_vs_cell_month_pct": brier_skill_pct,
+            "pss": mod_b.get("pss"),
+            "far": mod_b.get("far"),
+            "fnr": mod_b.get("fnr"),
+            "ece": mod_b.get("ece"),
             "ok": h_pass,
         }
     results["checks"]["dr_daily_model_beats_cell_month_climatology"] = {
         "ok": dr_ok,
         "model_class": "HistGradientBoostingClassifier + IsotonicRegression",
         "grid_degrees": float(config.GRID_DEG),
-        "n_features": len(daily_sources.get("features_clima", [])) + len(daily_sources.get("features_fuego", [])) + 2,
+        "n_features": int(daily.get("n_features", len(feats_h1))),
         "horizons": dr_horizons,
     }
+
+    # Observable NOAA-20 daily model check (if built)
+    n20_blk = daily.get("objetivo_observable_noaa20")
+    n20_model_path = config.DATA_OUT / "daily_model_noaa20.pkl"
+    if n20_blk and n20_model_path.exists():
+        n20_sha = sha256(n20_model_path)
+        n20_exp = n20_blk.get("fuentes", {}).get("modelo_serializado_noaa20", {}).get("sha256")
+        n20_h = {}
+        n20_ok = (n20_sha == n20_exp)
+        for h_key in ("+24h", "+48h", "+72h"):
+            hb = n20_blk.get("horizontes", {}).get(h_key, {})
+            cb = hb.get("Climatología celda×mes", {})
+            mb = hb.get("IGNIS diario · FIRMS + NASA POWER (FWI)", {})
+            roc = float(mb.get("roc_auc", 0.0))
+            br = float(mb.get("brier", 1.0))
+            cbr = float(cb.get("brier", 1.0))
+            hp = roc > 0.78 and br < cbr
+            n20_ok = n20_ok and hp
+            n20_h[h_key] = {
+                "roc_auc": roc,
+                "pr_auc": float(mb.get("pr_auc", 0.0)),
+                "brier": br,
+                "clim_brier": cbr,
+                "brier_skill_vs_cell_month_pct": round(100.0 * (1.0 - br / max(cbr, 1e-9)), 2),
+                "pss": mb.get("pss"),
+                "far": mb.get("far"),
+                "fnr": mb.get("fnr"),
+                "ece": mb.get("ece"),
+                "ok": hp,
+            }
+        results["checks"]["dr_daily_observable_noaa20_target"] = {
+            "ok": n20_ok,
+            "split": n20_blk.get("split"),
+            "test_rows": n20_blk.get("n_test_filas"),
+            "artifact_sha256_verified": n20_sha == n20_exp,
+            "horizons": n20_h,
+        }
 
     # Regenera LOYO, jump metrics, 80% PI calibration & hierarchical shrinkage desde cells.parquet
     cells_df = pd.read_parquet(config.DATA_OUT / "cells.parquet")
@@ -133,7 +183,13 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
     cnt_jump = harmonize.jump_metrics(harm_df)
     frp_harm = harmonize.harmonize_frp(series, stored_model["frp"])
     frp_jump = harmonize.frp_jump_metrics(frp_harm)
+    oob_jump = harmonize.out_of_block_jump_verification(
+        series,
+        count_method=current_method,
+        frp_method=stored_model.get("frp", {}).get("method", "loglineal_frp_temporada"),
+    )
     hier_bench = harmonize.hierarchical_shrinkage_loyo(cells_df)
+    prov_published = harmonize.publish_hierarchical_provincial_series(cells_df)
 
     modis_pts = pd.read_parquet(config.DATA_OUT / "modis_points.parquet")
     viirs_evs = pd.read_parquet(config.DATA_OUT / "viirs_events.parquet")
@@ -147,10 +203,15 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
 
     ov_series = harmonize.overlap(series)
     frp_method = stored_model.get("frp", {}).get("method", "loglineal_frp_temporada")
-    cnt_dn = harmonize.double_nested_oos_pi80_coverage(ov_series, method=current_method, is_frp=False)
-    frp_dn = harmonize.double_nested_oos_pi80_coverage(ov_series, method=frp_method, is_frp=True)
-    strict_oos_cov_pct = cnt_dn["coverage_pct"]
-    frp_strict_oos_cov_pct = frp_dn["coverage_pct"]
+    cnt_dn = harmonize.double_nested_oos_pi80_coverage(
+        ov_series, method=current_method, is_frp=False, select_method_per_fold=True
+    )
+    frp_dn = harmonize.double_nested_oos_pi80_coverage(
+        ov_series, method=frp_method, is_frp=True, select_method_per_fold=True
+    )
+    strict_oos_cov_pct = cnt_dn["nested_selection_coverage_pct"]
+    frp_strict_oos_cov_pct = frp_dn["nested_selection_coverage_pct"]
+    frp_fixed_oos_cov_pct = frp_dn["fixed_method_coverage_pct"]
 
     yr_df = cells_df.assign(y=pd.to_datetime(cells_df["month"]).dt.year).groupby("y")[["modis", "viirs_px"]].sum()
     annual_reference = {
@@ -166,32 +227,45 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
         "jump_metrics_counts_2007_2011_vs_2012_2016": {
             "raw_viirs_px_ratio": round(cnt_jump["union_sin_ajuste"], 2),
             "harmonized_ratio": round(cnt_jump["armonizado"], 2),
+            "loyo_oos_ratio": oob_jump["counts"]["loyo_oos_ratio"],
+            "out_of_block_2017_2026_blind_ratio": oob_jump["counts"]["out_of_block_2017_2026_blind_ratio"],
             "modis_control_ratio": round(cnt_jump["modis_real"], 2),
         },
         "jump_metrics_frp_2007_2011_vs_2012_2016": {
             "raw_viirs_frp_ratio": round(frp_jump["union_sin_ajuste"], 2),
             "harmonized_frp_ratio": round(frp_jump["armonizado"], 2),
+            "loyo_oos_frp_ratio": oob_jump["frp"]["loyo_oos_frp_ratio"],
+            "out_of_block_2017_2026_blind_frp_ratio": oob_jump["frp"]["out_of_block_2017_2026_blind_frp_ratio"],
             "modis_frp_control_ratio": round(frp_jump["modis_real"], 2),
         },
+        "out_of_block_jump_verification": oob_jump,
         "annual_reference_counts": annual_reference,
         "pi80_validation": {
             "count_monthly_mult": [round(float(lo_q), 4), round(float(hi_q), 4)],
             "frp_monthly_mult": [round(float(stored_model["frp"]["banda"]["mensual"][0]), 4),
                                  round(float(stored_model["frp"]["banda"]["mensual"][1]), 4)],
             "counts_double_nested_oos_coverage_pct": strict_oos_cov_pct,
-            "counts_double_nested_hits": f"{cnt_dn['hits']}/{cnt_dn['total_months']}",
+            "counts_nested_method_selection_oos_coverage_pct": cnt_dn["nested_selection_coverage_pct"],
+            "counts_fixed_method_double_nested_oos_coverage_pct": cnt_dn["fixed_method_coverage_pct"],
+            "counts_double_nested_hits": f"{cnt_dn['nested_selection_hits']}/{cnt_dn['total_months']}",
+            "counts_selected_methods_across_outer_folds": cnt_dn["selected_methods"],
             "frp_double_nested_oos_coverage_pct": frp_strict_oos_cov_pct,
-            "frp_double_nested_hits": f"{frp_dn['hits']}/{frp_dn['total_months']}",
+            "frp_nested_method_selection_oos_coverage_pct": frp_dn["nested_selection_coverage_pct"],
+            "frp_fixed_method_double_nested_oos_coverage_pct": frp_fixed_oos_cov_pct,
+            "frp_double_nested_hits": f"{frp_dn['nested_selection_hits']}/{frp_dn['total_months']}",
+            "frp_fixed_method_double_nested_hits": f"{frp_dn['fixed_method_hits']}/{frp_dn['total_months']}",
+            "frp_selected_methods_across_outer_folds": frp_dn["selected_methods"],
             "frp_method": frp_method,
             "strict_noncircular_oos_coverage_pct": strict_oos_cov_pct,
             "calibrated_loyo_coverage_pct": pi80_cov_pct,
             "note": (
-                "True double-nested LOYO: for every held-out outer year y, an inner LOYO runs strictly on "
-                "outer_train (years != y) so year y never participates in inner model fitting, inner residuals, "
-                "or q10/q90 quantile calibration. Evaluated independently for both hotspot counts and FRP (MW)."
+                "Full double-nested LOYO with inner-fold method selection: for every held-out outer year y, "
+                "all candidate methods are evaluated strictly inside outer_train (years != y) via inner LOYO "
+                "to select the fold winner m*(outer_train) and calibrate (q10, q90) quantiles before scoring year y."
             ),
         },
         "hierarchical_shrinkage_01deg_benchmark": hier_bench,
+        "published_provincial_series": prov_published,
         "h3_res7_multiscale_benchmark": h3_bench,
         "dr_daily_inference_latency": inference_latency,
     }
@@ -367,7 +441,22 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
         except Exception as exc:
             results["data_availability"] = {"source": "NASA FIRMS VIIRS 375m 7d", "error": type(exc).__name__}
 
+    # Prospective forecast ledger hash-chain check (if initialized)
+    from pipeline import forecast_ledger
+    if forecast_ledger.LEDGER_PATH.exists():
+        results["checks"]["prospective_forecast_ledger_chain"] = forecast_ledger.verify_chain()
+
     checks = results["checks"]
+    results["verification_environment"] = {
+        "mode": "offline_packaged_artifacts" if offline else "full_local_with_live_checks",
+        "raw_dem_dir_present": bool(raw_dem_present),
+        "raw_gfa_zip_present": bool(checks.get("global_nasa_model_artifact_and_split", {}).get("raw_files_present", False)),
+        "note": (
+            "Raw source archives under data/raw/ are excluded from git and ZIP distributions via .gitignore. "
+            "When raw_files_present is False (clean clone / ZIP), DEM and GFA checks validate the bundled "
+            "processed artifacts and embedded SHA-256 / Zenodo MD5 provenance manifests."
+        ),
+    }
     results["all_checks_pass"] = all(v.get("ok", True) for v in checks.values() if isinstance(v, dict))
     if not offline:
         out_path = config.DATA_OUT / "audit_report.json"

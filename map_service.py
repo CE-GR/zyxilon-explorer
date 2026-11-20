@@ -16,8 +16,9 @@ from pipeline import geo, global_fires as gf, mapa_live as ml, regions as rg
 
 _MAP_CACHE: Dict[str, Any] = {
     "html": None,
-    "timestamp": 0,
+    "html_timestamp": 0,
     "data_json": None,
+    "data_timestamp": 0,
     "climatology": None,
     "ttl": 900  # 15 minutos de caché en memoria
 }
@@ -152,7 +153,8 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
 
     cov_pct = 79.3
     strict_oos_cov_pct = 78.7
-    frp_strict_oos_cov_pct = 78.7
+    frp_strict_oos_cov_pct = 78.2
+    frp_fixed_oos_cov_pct = 78.7
     lp_path = config.DATA_OUT / "loyo_preds.parquet"
     band_cnt_m = model.get("banda", {}).get("mensual", [0.740323, 1.318718])
     band_cnt_a = model.get("banda", {}).get("anual", [0.878715, 1.119800])
@@ -169,6 +171,8 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
         strict_oos_cov_pct = float(pi80_val["counts_double_nested_oos_coverage_pct"])
     if pi80_val.get("frp_double_nested_oos_coverage_pct") is not None:
         frp_strict_oos_cov_pct = float(pi80_val["frp_double_nested_oos_coverage_pct"])
+    if pi80_val.get("frp_fixed_method_double_nested_oos_coverage_pct") is not None:
+        frp_fixed_oos_cov_pct = float(pi80_val["frp_fixed_method_double_nested_oos_coverage_pct"])
     if lp_path.exists():
         try:
             lp_df = pd.read_parquet(lp_path)
@@ -185,7 +189,9 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
         "count_annual_mult": [round(float(band_cnt_a[0]), 3), round(float(band_cnt_a[1]), 3)],
         "frp_monthly_mult": [round(float(band_frp_m[0]), 3), round(float(band_frp_m[1]), 3)],
         "counts_double_nested_oos_coverage_pct": strict_oos_cov_pct,
+        "counts_nested_method_selection_oos_coverage_pct": strict_oos_cov_pct,
         "frp_double_nested_oos_coverage_pct": frp_strict_oos_cov_pct,
+        "frp_fixed_method_double_nested_oos_coverage_pct": frp_fixed_oos_cov_pct,
         "strict_noncircular_oos_coverage_pct": strict_oos_cov_pct,
         "empirical_loyo_coverage_pct": cov_pct,
     }
@@ -342,52 +348,108 @@ def _clean_pts_fast(df_in: pd.DataFrame) -> List[Dict[str, Any]]:
     return records
 
 
-def fetch_recent_viirs_rd_fast() -> pd.DataFrame:
-    """Extrae focos térmicos de República Dominicana desde el caché local en < 0.05s."""
-    out_frames = []
-    for feed_name in ["VIIRS_N20_7d", "VIIRS_N21_7d", "VIIRS_N20_24h", "VIIRS_N21_24h"]:
-        c_file = config.DATA_CACHE / f"{feed_name}.csv"
-        if c_file.exists():
+def fetch_recent_viirs_rd_fast(max_age_seconds: int = 3600, single_sensor_primary: bool = True) -> pd.DataFrame:
+    """Garantiza la descarga/actualización de los feeds VIIRS de 7 días y extrae focos
+    térmicos de República Dominicana preservando su identidad espacio-temporal
+    (coordenadas + fecha + hora + satélite) para las ventanas f_lag1, f_2d, f_7d y FRP.
+
+    Con single_sensor_primary=True (por defecto para el modelo diario), usa 1 solo satélite
+    activo (VIIRS NOAA-20, emparejando 1:1 el objetivo entrenado sin inflar 2x las features
+    de historial); solo cae a NOAA-21 si el feed NOAA-20 está vacío."""
+    primary_feeds = ["VIIRS_N20_7d", "VIIRS_N20_24h"]
+    fallback_feeds = ["VIIRS_N21_7d", "VIIRS_N21_24h"]
+    feeds_to_ensure = ("VIIRS_N20_7d",) if single_sensor_primary else ("VIIRS_N20_7d", "VIIRS_N21_7d")
+
+    for feed_7d in feeds_to_ensure:
+        c_file_7d = config.DATA_CACHE / f"{feed_7d}.csv"
+        needs_fetch = not c_file_7d.exists()
+        if not needs_fetch:
             try:
-                with open(c_file, "r", encoding="utf-8", errors="ignore") as f:
-                    header = [h.strip() for h in f.readline().split(",")]
-                    lat_i = header.index("latitude") if "latitude" in header else header.index("lat") if "lat" in header else -1
-                    lon_i = header.index("longitude") if "longitude" in header else header.index("lon") if "lon" in header else -1
-                    if lat_i != -1 and lon_i != -1:
-                        matched = []
-                        for line in f:
-                            parts = line.split(",")
-                            if len(parts) > max(lat_i, lon_i):
-                                try:
-                                    la = float(parts[lat_i])
-                                    lo = float(parts[lon_i])
-                                    if 17.4 <= la <= 20.1 and -72.1 <= lo <= -68.3:
-                                        matched.append(parts)
-                                except ValueError:
-                                    continue
-                        if matched:
-                            df_sub = pd.DataFrame(matched, columns=header)
-                            for col in ["latitude", "lat", "longitude", "lon", "frp"]:
-                                if col in df_sub.columns:
-                                    df_sub[col] = pd.to_numeric(df_sub[col], errors="coerce")
-                            if "date" not in df_sub.columns and "acq_date" in df_sub.columns:
-                                df_sub["date"] = pd.to_datetime(df_sub["acq_date"], errors="coerce")
-                            out_frames.append(df_sub)
+                needs_fetch = (time.time() - c_file_7d.stat().st_mtime) > max_age_seconds
+            except Exception:
+                needs_fetch = True
+        if needs_fetch:
+            try:
+                gf.fetch_live_feed(feed_7d, cache_dir=config.DATA_CACHE, max_age_seconds=max_age_seconds)
             except Exception:
                 pass
+
+    def _read_feeds(feed_list: list[str]) -> list[pd.DataFrame]:
+        frames = []
+        for feed_name in feed_list:
+            c_file = config.DATA_CACHE / f"{feed_name}.csv"
+            if c_file.exists():
+                try:
+                    with open(c_file, "r", encoding="utf-8", errors="ignore") as f:
+                        header = [h.strip() for h in f.readline().split(",")]
+                        lat_i = header.index("latitude") if "latitude" in header else header.index("lat") if "lat" in header else -1
+                        lon_i = header.index("longitude") if "longitude" in header else header.index("lon") if "lon" in header else -1
+                        if lat_i != -1 and lon_i != -1:
+                            matched = []
+                            for line in f:
+                                parts = line.strip().split(",")
+                                if len(parts) > max(lat_i, lon_i):
+                                    try:
+                                        la = float(parts[lat_i])
+                                        lo = float(parts[lon_i])
+                                        if 17.4 <= la <= 20.1 and -72.1 <= lo <= -68.3:
+                                            matched.append(parts)
+                                    except ValueError:
+                                        continue
+                            if matched:
+                                df_sub = pd.DataFrame(matched, columns=header)
+                                for col in ["latitude", "lat", "longitude", "lon", "frp"]:
+                                    if col in df_sub.columns:
+                                        df_sub[col] = pd.to_numeric(df_sub[col], errors="coerce")
+                                if "date" not in df_sub.columns and "acq_date" in df_sub.columns:
+                                    df_sub["date"] = pd.to_datetime(df_sub["acq_date"], errors="coerce")
+                                elif "date" in df_sub.columns:
+                                    df_sub["date"] = pd.to_datetime(df_sub["date"], errors="coerce")
+                                if "satellite" not in df_sub.columns:
+                                    df_sub["satellite"] = "NOAA-20" if "N20" in feed_name else "NOAA-21"
+                                frames.append(df_sub)
+                except Exception:
+                    pass
+        return frames
+
+    if single_sensor_primary:
+        out_frames = _read_feeds(primary_feeds)
+        if not out_frames:
+            try:
+                gf.fetch_live_feed("VIIRS_N21_7d", cache_dir=config.DATA_CACHE, max_age_seconds=max_age_seconds)
+            except Exception:
+                pass
+            out_frames = _read_feeds(fallback_feeds)
+    else:
+        out_frames = _read_feeds(primary_feeds + fallback_feeds)
     if out_frames:
         recent_viirs = pd.concat(out_frames, ignore_index=True)
         if "lat" not in recent_viirs.columns and "latitude" in recent_viirs.columns:
             recent_viirs["lat"] = recent_viirs["latitude"]
         if "lon" not in recent_viirs.columns and "longitude" in recent_viirs.columns:
             recent_viirs["lon"] = recent_viirs["longitude"]
-        recent_viirs = recent_viirs.drop_duplicates(subset=["lat", "lon"]).reset_index(drop=True)
+        recent_viirs["lat_r"] = pd.to_numeric(recent_viirs["lat"], errors="coerce").round(5)
+        recent_viirs["lon_r"] = pd.to_numeric(recent_viirs["lon"], errors="coerce").round(5)
+        recent_viirs["date_norm"] = pd.to_datetime(recent_viirs["date"], errors="coerce").dt.normalize()
+        time_col = "acq_time" if "acq_time" in recent_viirs.columns else ("time_utc" if "time_utc" in recent_viirs.columns else None)
+        dedup_cols = ["lat_r", "lon_r", "date_norm"]
+        if time_col:
+            dedup_cols.append(time_col)
+        if "satellite" in recent_viirs.columns:
+            dedup_cols.append("satellite")
+        recent_viirs = (
+            recent_viirs
+            .dropna(subset=["lat_r", "lon_r", "date_norm"])
+            .drop_duplicates(subset=dedup_cols)
+            .drop(columns=["lat_r", "lon_r", "date_norm"], errors="ignore")
+            .reset_index(drop=True)
+        )
         return recent_viirs
     return pd.DataFrame()
 
 
-def _lookup_geos_wind(wx_map: Dict[str, dict], lat: float, lon: float, max_deg: float = 1.5) -> Dict[str, Any] | None:
-    """Busca muestra de viento NASA GEOS-FP exacta o vecina dentro de la celda de 1°."""
+def _lookup_geos_wind(wx_map: Dict[str, dict], lat: float, lon: float, max_deg: float = 0.35) -> Dict[str, Any] | None:
+    """Busca muestra de viento NASA GEOS-FP dentro de la resolución nativa de celda (0.25° x 0.3125°)."""
     if not wx_map:
         return None
     exact = wx_map.get(f"{lat:.2f},{lon:.2f}")
@@ -409,8 +471,9 @@ def _lookup_geos_wind(wx_map: Dict[str, dict], lat: float, lon: float, max_deg: 
 
 def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max_gfa_cells: int = 30) -> list[dict]:
     """Genera predicciones globales a +24h, +48h y +72h combinando clústeres FIRMS activos
-    (con vectores de viento reales de NASA GEOS-FP) y celdas de recurrencia climatológica
-    del NASA Global Fire Atlas (1°, sin conos direccionales)."""
+    (con vectores de viento reales de NASA GEOS-FP en los 50 clústeres y estados explícitos
+    de validación probabilística) y celdas de recurrencia climatológica del NASA Global Fire
+    Atlas (1°, usando los calibradores isotónicos propios de +24h, +48h y +72h)."""
     glob_records = []
     try:
         from pipeline import global_fire_model, nasa_geos_fp, predictive_model as pm
@@ -431,7 +494,7 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                 ).reset_index()
 
                 top_clusters = agg_glob.sort_values("sum_frp", ascending=False).head(max_clusters)
-                sample_coords = [(float(r["lat"]), float(r["lon"])) for _, r in top_clusters.head(20).iterrows()]
+                sample_coords = [(float(r["lat"]), float(r["lon"])) for _, r in top_clusters.iterrows()]
                 wx_by_h: Dict[int, Dict[str, dict]] = {24: {}, 48: {}, 72: {}}
                 for h_hr in (24, 48, 72):
                     c_path = config.DATA_CACHE / "nasa_geos_fp" / f"global_clusters_{h_hr}h.json"
@@ -453,9 +516,9 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                     terr_name, cont_name = pm.identify_global_territory(g_lat, g_lon)
                     terr_label = terr_name if cont_name.lower() in terr_name.lower() else f"{terr_name} · {cont_name}"
 
-                    w24 = _lookup_geos_wind(wx_by_h[24], g_lat, g_lon)
-                    w48 = _lookup_geos_wind(wx_by_h[48], g_lat, g_lon) or w24
-                    w72 = _lookup_geos_wind(wx_by_h[72], g_lat, g_lon) or w48 or w24
+                    w24 = _lookup_geos_wind(wx_by_h[24], g_lat, g_lon, max_deg=0.35)
+                    w48 = _lookup_geos_wind(wx_by_h[48], g_lat, g_lon, max_deg=0.35) or w24
+                    w72 = _lookup_geos_wind(wx_by_h[72], g_lat, g_lon, max_deg=0.35) or w48 or w24
 
                     b24 = round(float(w24["bearing_to"]), 1) if (w24 and w24.get("bearing_to") is not None) else None
                     b48 = round(float(w48["bearing_to"]), 1) if (w48 and w48.get("bearing_to") is not None) else b24
@@ -472,13 +535,42 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                     except Exception:
                         p24_dict, p48_dict, p72_dict = {}, {}, {}
 
-                    prob_24 = round(float(p24_dict.get("probability") or p24_dict.get("probability_day") or 0.18), 4)
-                    prob_48 = round(float(p48_dict.get("probability") or p48_dict.get("probability_day") or 0.28), 4)
-                    prob_72 = round(float(p72_dict.get("probability") or p72_dict.get("probability_day") or 0.38), 4)
+                    p24_raw = p24_dict.get("probability")
+                    p48_raw = p48_dict.get("probability")
+                    p72_raw = p72_dict.get("probability")
+                    prob_supported = bool(p24_dict.get("probability_supported"))
+                    prob_validated = bool(
+                        prob_supported
+                        and p24_dict.get("probability_validated")
+                        and p24_raw is not None
+                        and p48_raw is not None
+                        and p72_raw is not None
+                    )
+                    if prob_validated:
+                        prob_24 = round(float(p24_raw), 4)
+                        prob_48 = round(float(p48_raw), 4)
+                        prob_72 = round(float(p72_raw), 4)
+                        p_daily_24 = round(prob_24 * 100.0, 1)
+                        p_daily_48 = round(prob_48 * 100.0, 1)
+                        p_daily_72 = round(prob_72 * 100.0, 1)
+                        prob_status = "validated_model"
+                        prob_label = "P(GFA ignition ≥0.21 km²) · calibrated 1° cell"
+                    else:
+                        prob_24 = None
+                        prob_48 = None
+                        prob_72 = None
+                        p_daily_24 = None
+                        p_daily_48 = None
+                        p_daily_72 = None
+                        prob_status = "unsupported"
+                        prob_label = "Unsupported 1° cell (no 2002–2025 GFA training fires)"
+
+                    clim_ref_day = p24_dict.get("probability_day")
+                    clim_ref_24 = round(float(clim_ref_day), 4) if (not prob_supported and clim_ref_day is not None) else None
 
                     spd_24 = round(float(p24_dict.get("speed_km_day") or 1.4), 1)
-                    spd_48 = round(spd_24 * 2.0, 1)
-                    spd_72 = round(spd_24 * 3.0, 1)
+                    spd_48 = round(float(p48_dict.get("spread_distance_km") or (spd_24 * 2.0)), 1)
+                    spd_72 = round(float(p72_dict.get("spread_distance_km") or (spd_24 * 3.0)), 1)
 
                     has_geos_wind = b24 is not None and s24 is not None
                     valid_at = w24.get("valid_time") if w24 else None
@@ -489,9 +581,10 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                         "prob_24": prob_24,
                         "prob_48": prob_48,
                         "prob_72": prob_72,
-                        "p_daily_24": round(prob_24 * 100, 1),
-                        "p_daily_48": round(prob_48 * 100, 1),
-                        "p_daily_72": round(prob_72 * 100, 1),
+                        "p_daily_24": p_daily_24,
+                        "p_daily_48": p_daily_48,
+                        "p_daily_72": p_daily_72,
+                        "climatology_reference_day": clim_ref_24,
                         "spread_24": spd_24,
                         "spread_48": spd_48,
                         "spread_72": spd_72,
@@ -514,46 +607,57 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                         "terr": terr_label,
                         "is_rd": False,
                         "kind": "Active FIRMS Hotspot · Global NASA GFA + GEOS-FP",
-                        "probability_validated": True,
+                        "probability_status": prob_status,
+                        "probability_supported": prob_supported,
+                        "probability_validated": prob_validated,
+                        "probability_label": prob_label,
                         "show_spread_cone": bool(has_geos_wind),
                         "weather_source": (
                             f"{nasa_geos_fp.SOURCE} + NASA GFA + FIRMS NRT"
                             if has_geos_wind
-                            else "NASA Global Fire Atlas + FIRMS NRT (no GEOS-FP vector cached)"
+                            else "NASA Global Fire Atlas + FIRMS NRT (no GEOS-FP vector in 0.35° cell)"
                         ),
                         "weather_valid_at": valid_at,
                         "scenario_note": (
-                            f"Cluster of {int(r['n_pts'])} FIRMS detections. Wind direction from NASA GEOS-FP 10m vector; speed from GFA monthly velocity."
+                            f"Cluster of {int(r['n_pts'])} FIRMS detections. Wind direction from native NASA GEOS-FP 10m cell; speed from GFA monthly velocity (orientation scenario, not physical perimeter)."
                             if has_geos_wind
-                            else f"Cluster of {int(r['n_pts'])} FIRMS detections. GFA historical speed; directional cone disabled without GEOS-FP wind sample."
+                            else f"Cluster of {int(r['n_pts'])} FIRMS detections. GFA historical speed; directional cone disabled without native GEOS-FP wind sample."
                         ),
                         "min_horizon": 24,
                         "rank": len(glob_records)
                     })
 
         # 2. Celdas de riesgo climatológico del NASA Global Fire Atlas (1° de resolución)
-        # No se dibujan conos direccionales en celdas climatológicas de 1° (precisión direccional histórica 27.6% vs 27.5% baseline).
+        # Se evalúan los tres horizontes (+24h, +48h, +72h) con sus propios calibradores isotónicos.
         gfa_cells = global_fire_model.risk_grid(72, limit=max_gfa_cells)
         for gc in gfa_cells:
             g_lat = float(gc["lat"])
             g_lon = float(gc["lon"])
             terr_name, cont_name = pm.identify_global_territory(g_lat, g_lon)
             terr_label = terr_name if cont_name.lower() in terr_name.lower() else f"{terr_name} · {cont_name}"
-            prob_72 = round(float(gc.get("probability", 0.5)), 4)
-            prob_24 = round(1.0 - (1.0 - prob_72) ** (1 / 3), 4)
-            prob_48 = round(1.0 - (1.0 - prob_72) ** (2 / 3), 4)
+            p24_c = global_fire_model.predict(g_lat, g_lon, 24)
+            p48_c = global_fire_model.predict(g_lat, g_lon, 48)
+            p72_c = global_fire_model.predict(g_lat, g_lon, 72)
+            if p24_c.get("probability") is None or p48_c.get("probability") is None or p72_c.get("probability") is None:
+                continue
+            prob_24 = round(float(p24_c["probability"]), 4)
+            prob_48 = round(float(p48_c["probability"]), 4)
+            prob_72 = round(float(p72_c["probability"]), 4)
+            spd_24 = round(float(p24_c.get("speed_km_day") or 1.5), 1)
+            spd_48 = round(float(p48_c.get("spread_distance_km") or (spd_24 * 2.0)), 1)
+            spd_72 = round(float(p72_c.get("spread_distance_km") or (spd_24 * 3.0)), 1)
             glob_records.append({
                 "lat": round(g_lat, 4),
                 "lon": round(g_lon, 4),
                 "prob_24": prob_24,
                 "prob_48": prob_48,
                 "prob_72": prob_72,
-                "p_daily_24": round(prob_24 * 100, 1),
-                "p_daily_48": round(prob_48 * 100, 1),
-                "p_daily_72": round(prob_72 * 100, 1),
-                "spread_24": 1.5,
-                "spread_48": 3.0,
-                "spread_72": 4.5,
+                "p_daily_24": round(prob_24 * 100.0, 1),
+                "p_daily_48": round(prob_48 * 100.0, 1),
+                "p_daily_72": round(prob_72 * 100.0, 1),
+                "spread_24": spd_24,
+                "spread_48": spd_48,
+                "spread_72": spd_72,
                 "bearing": None,
                 "bearing_24": None,
                 "bearing_48": None,
@@ -573,10 +677,13 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                 "terr": terr_label,
                 "is_rd": False,
                 "kind": "NASA Global Fire Atlas · 1° Climatological Cell",
+                "probability_status": "climatology",
+                "probability_supported": True,
                 "probability_validated": True,
+                "probability_label": "P(GFA ignition ≥0.21 km²) · 1° cell×month climatology",
                 "show_spread_cone": False,
                 "weather_source": "NASA Global Fire Atlas Climatology (2002–2025)",
-                "scenario_note": "1° climatological recurrence cell (validated ignition probability & mean speed; directional cone disabled — GFA direction accuracy 27.6% vs 27.5% baseline).",
+                "scenario_note": "1° climatological recurrence cell (per-horizon isotonic calibration +24h/+48h/+72h; directional cone disabled — GFA direction accuracy 27.6% vs 27.5% baseline).",
                 "min_horizon": 24,
                 "rank": len(glob_records)
             })
@@ -587,9 +694,10 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
 
 
 def build_map_data(force: bool = False) -> Dict[str, Any]:
-    """Descarga y procesa datos FIRMS NRT para la estación satelital con caché instantáneo (<2ms)."""
+    """Descarga y procesa datos FIRMS NRT para la estación satelital con caché instantáneo (<2ms).
+    Al actualizar data_json, invalida el HTML cacheado para evitar servir vistas con datos antiguos."""
     now = time.time()
-    if not force and _MAP_CACHE.get("data_json") and (now - _MAP_CACHE.get("timestamp", 0) < _MAP_CACHE.get("ttl", 900)):
+    if not force and _MAP_CACHE.get("data_json") and (now - _MAP_CACHE.get("data_timestamp", 0) < _MAP_CACHE.get("ttl", 900)):
         return _MAP_CACHE["data_json"]
 
     m_live = gf.fetch_live_feed("MODIS_24h", cache_dir=config.DATA_CACHE)
@@ -660,15 +768,17 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
     v21_records = _clean_pts_fast(v21_draw)
     vsnpp_records = _clean_pts_fast(vsnpp_draw)
 
-    # 1. Inferencia diaria de alta resolución para República Dominicana
+    # 1. Inferencia diaria de alta resolución para República Dominicana (29 features · objetivo NOAA-20)
     rd_records = []
     try:
-        from pipeline import daily_model
-        rd_viirs_sub = fetch_recent_viirs_rd_fast()
+        from pipeline import daily_model, forecast_ledger
+        rd_viirs_sub = fetch_recent_viirs_rd_fast(single_sensor_primary=True)
         daily_pred = daily_model.predict_live_daily_rd(rd_viirs_sub, weather_status="ok", prefer_cache_only=True)
         if daily_pred.empty:
             daily_pred = daily_model.predict_live_daily_rd(rd_viirs_sub, weather_status="ok", prefer_cache_only=False)
         if not daily_pred.empty:
+            model_target_sensor = str(daily_pred["model_target_sensor"].iloc[0]) if "model_target_sensor" in daily_pred.columns else "VIIRS NOAA-20"
+            model_sha_used = str(daily_pred["model_sha256"].iloc[0]) if "model_sha256" in daily_pred.columns else ""
             gp_sorted = daily_pred.sort_values("prob_24", ascending=False)
             added_ai = 0
             for _, r in gp_sorted.iterrows():
@@ -720,15 +830,29 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
                     "vpd_kpa": vpd_v,
                     "terr": f"{prov} (DR)",
                     "is_rd": True,
-                    "kind": "Daily AI Ignition (HGB+Isotonic · FWI + DEM)",
+                    "kind": f"Daily AI Ignition (HGB+Isotonic · 29 Features · {model_target_sensor})",
+                    "model_target_sensor": model_target_sensor,
+                    "probability_status": "validated_model",
+                    "probability_supported": True,
                     "probability_validated": True,
+                    "probability_label": f"P({model_target_sensor} event) · 29 ML Features + Isotonic",
                     "show_spread_cone": True,
                     "weather_source": "Open-Meteo hourly + DEM SRTM",
-                    "scenario_note": "Calibrated daily probability (2012–2026); hourly wind vector + DEM slope.",
+                    "scenario_note": f"Calibrated daily probability ({model_target_sensor} target); hourly wind + DEM slope orientation scenario (not physical perimeter).",
                     "min_horizon": min_h,
                     "rank": added_ai,
                 })
                 added_ai += 1
+            if rd_records and model_sha_used:
+                try:
+                    forecast_ledger.append_forecast_snapshot(
+                        rd_records,
+                        model_sha256=model_sha_used,
+                        sensor_source="VIIRS_NOAA20_7d",
+                        target_definition=f"P(>=1 {model_target_sensor} event in 0.1deg cell in (t, t+h])",
+                    )
+                except Exception:
+                    pass
     except Exception as e:
         print(f"[Zyxilon Explorer] Warning generating DR prediction: {e}")
 
@@ -783,16 +907,23 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
         "dom_outline": dom_outline
     }
     _MAP_CACHE["data_json"] = res
-    _MAP_CACHE["timestamp"] = now
+    _MAP_CACHE["data_timestamp"] = now
+    _MAP_CACHE["html"] = None
+    _MAP_CACHE["html_timestamp"] = 0
     return res
 
 
 def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl: int = 3) -> str:
     """Genera el HTML completo del mapa satelital Leaflet a pantalla completa.
-    Cachea la plantilla con __CENTER_LAT__, __CENTER_LON__ y __ZOOM_LVL__ sin reemplazar
-    para que cada petición (/mapa, ?corridor=valle_nuevo, ?lat=...&lon=...) reciba su vista exacta."""
+    Usa html_timestamp independiente de data_timestamp y se reconstruye si data_json fue actualizado."""
     now = time.time()
-    if _MAP_CACHE["html"] and (now - _MAP_CACHE["timestamp"] < _MAP_CACHE["ttl"]):
+    ttl = _MAP_CACHE.get("ttl", 900)
+    if (
+        _MAP_CACHE.get("html")
+        and (now - _MAP_CACHE.get("html_timestamp", 0) < ttl)
+        and (now - _MAP_CACHE.get("data_timestamp", 0) < ttl)
+        and (_MAP_CACHE.get("html_timestamp", 0) >= _MAP_CACHE.get("data_timestamp", 0))
+    ):
         return (
             _MAP_CACHE["html"]
             .replace("__CENTER_LAT__", str(center_lat))
@@ -801,7 +932,6 @@ def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl:
         )
 
     data = build_map_data()
-    _MAP_CACHE["data_json"] = data
     clim_full = build_climatology_data()
     clim_map_payload = {
         "grid_deg": clim_full["grid_deg"],
@@ -845,8 +975,9 @@ def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl:
         .replace("__CARTO_KEY__", getattr(config, "CARTO_API_KEY", ""))
     )
 
+    html_now = time.time()
     _MAP_CACHE["html"] = html_template
-    _MAP_CACHE["timestamp"] = now
+    _MAP_CACHE["html_timestamp"] = html_now
     return (
         html_template
         .replace("__CENTER_LAT__", str(center_lat))

@@ -13,7 +13,7 @@
 
 - **The Physical Discontinuity:** Across `2000–2026`, NASA FIRMS fire records span two thermal sensor generations: **MODIS** (Terra & Aqua, `~705 km` orbit, `1 km` nominal pixel, `3.96 µm`) and **VIIRS** (Suomi-NPP, NOAA-20 & NOAA-21, `~824 km` orbit, `375 m` pixel, `3.74 µm`, `~7.1×` sub-pixel footprint ratio). Comparing mean annual activity in `2012–2016` against `2007–2011` (`pipeline/harmonize.py:jump_metrics`) produces a **`×4.52`** raw VIIRS pixel jump (e.g., `1,726` cleaned MODIS detections in `2011` vs. `7,861` VIIRS pixels / `9,354` combined in `2015`), whereas independent MODIS activity in the same window was **`×0.92`**.
 - **Multi-Scale Geodesic & Operational Solution:** Zyxilon Explorer combines **three harmonization tiers** plus **live `+24h/+48h/+72h` forecasting**, with every number stored in plain JSON ([`data/processed/harmonization_audit.json`](data/processed/harmonization_audit.json)) and recomputed locally by our internal verification script (`python -m pipeline.audit --offline`) on any clean clone:
-  1. **Production National Radiometric Ensemble (`model_national.json`):** Collapses `×4.52 → ×0.91/×0.92` (`6.29%` annual median error, `MAE 15.62`, `r = 0.964`, `0.008%` net bias; simple ratio `razon_px` achieves `5.92%` / `MAE 15.81`), with **true double-nested out-of-sample `80%` Prediction Intervals (`78.7%` held-out coverage, `137/174` months)** evaluated independently across **both hotspot counts AND Fire Radiative Power (FRP, MW)** (where the held-out outer year $y$ never participates in inner model fitting, inner residuals, or quantile calibration).
+  1. **Production National Radiometric Ensemble (`model_national.json`):** Collapses `×4.52 → ×0.91/×0.92` (`6.29%` annual median error, `MAE 15.62`, `r = 0.964`, `0.008%` net bias; simple ratio `razon_px` achieves `5.92%` / `MAE 15.81`), with **full double-nested out-of-sample `80%` Prediction Intervals including inner-fold method selection** (**`78.7%` [`137/174` mo] on counts; `78.2%` [`136/174` mo] with inner FRP method selection / `78.7%` [`137/174` mo] fixed FRP method**) where the held-out outer year $y$ never participates in method selection, inner model fitting, inner residuals, or quantile calibration.
   2. **True 4-Tier Geodesic Uber H3 Resolution 7 Hierarchy (`pipeline/harmonize.py:h3_res7_hierarchical_loyo`):** Indexes all `30,653` MODIS + `55,917` VIIRS events (`81,089` pixels) onto **`10,058` active Uber H3 Res. 7 hexagons** (`3.84 km²` measured area — **`~160×` finer** than `0.25°` rectangular grids) → `303` H3 Res. 5 parents → `32` ADM1 provinces → National, beating the flat national ensemble in monthly MAE (**`15.37`** vs `15.62`, `r = 0.9622`, `5.27%` annual median error, **`78.7%` double-nested OOS `80% PI`**).
   3. **0.1° Empirical-Bayes Hierarchical Shrinkage (`pipeline/harmonize.py:hierarchical_shrinkage_loyo`):** `464` active overlap `0.1°` (~11 km) cells → `32` ADM1 provinces → National, lowering national annual median LOYO error to **`2.58%`** (`MAE 15.08`, `r = 0.9662`, `53.0%` direct cell weight).
 
@@ -31,19 +31,20 @@
 
 ### Strictly Non-Circular Out-of-Sample `80%` Prediction Intervals (Counts AND FRP MW)
 Every reconstructed post-2012 month in `/api/climatology` and `[ ↓ EXPORT CSV ]` publishes asymmetric **80% Prediction Intervals (`q = 0.10 / 0.90`)** for **both hotspot counts and radiative power (FRP, MW)**:
-- **True Double-Nested OOS Validation (`double_nested_oos_pi80_coverage`):** For every held-out outer year $y$, an complete **inner LOYO** runs strictly inside `outer_train` ($\text{years} \neq y$) so outer year $y$ never participates in inner model fitting, inner residuals, or `(q10, q90)` quantile calibration. Tested on held-out outer year $y$, this achieves **`78.7%` (`137/174` months) double-nested OOS coverage** (nominal target `80.0%`, zero outer-year leakage) for **both hotspot counts (`ensamble_hibrido_loyo`) and Fire Radiative Power (`loglineal_frp_temporada`, MW)**, as well as **`78.7%`** on the 4-tier H3 Res. 7 hierarchy (`79.3%` single-level LOYO calibration).
+- **True Double-Nested OOS Validation with Inner-Fold Method Selection (`double_nested_oos_pi80_coverage`):** For every held-out outer year $y$, all candidate harmonization methods are evaluated **strictly inside `outer_train` ($\text{years} \neq y$)** via inner LOYO to select the fold winner $m^*(\text{outer\_train})$ and calibrate `(q10, q90)` quantiles — so outer year $y$ has zero influence on method choice, parameter fitting, or quantile intervals. Tested on held-out outer year $y$, this achieves **`78.7%` (`137/174` months) double-nested OOS coverage on counts** and **`78.2%` (`136/174` months) with inner-fold FRP method selection (`78.7%` [`137/174`] fixed FRP method)**, plus **`78.7%`** on the 4-tier H3 Res. 7 hierarchy (`79.3%` single-level LOYO calibration).
 - **Published Multipliers:** Counts **`[0.740×, 1.319×]`** (`pi80_lo`, `pi80_hi`); FRP MW **`[0.575×, 1.464×]`** (`frp_harmonized_mw`, `frp_pi80_lo`, `frp_pi80_hi`).
 
 ### Harmonization Model Comparison (Strictly Out-of-Sample LOYO `2012–2026`)
 
 | Harmonization Tier | Spatial Scale | National Ann. Med. Err | Monthly MAE | Monthly `r` | Strict OOS `80% PI` Cov. |
 | --- | --- | :---: | :---: | :---: | :---: |
-| **Production Ensemble (`ensamble_hibrido_loyo`)** | National (`model_national.json`) | `6.29%` (`0.008%` bias) | `15.62` | `0.9638` | **`78.7%`** |
+| **Production Ensemble (`ensamble_hibrido_loyo`)** | National (`model_national.json`) | `6.29%` (`0.008%` bias) | `15.62` | `0.9638` | **`78.7%`** *(inner-selected)* |
 | **Simple Pixel Ratio Baseline (`razon_px`)** | National (`model_national.json`) | `5.92%` (`-0.023%` bias) | `15.81` | `0.9637` | — |
-| **Multi-Scale Geodesic Uber H3 Res. 7** | `10,058` H3 Res. 7 (`3.84 km²`) → Res. 5 → 32 ADM1 → Nat. | `5.27%` | **`15.37`** | `0.9622` | **`78.7%`** |
-| **Empirical-Bayes `0.1°` Hierarchical Shrinkage** | `464` `0.1°` cells → 32 ADM1 → Nat. *(benchmark)* | **`2.58%`** | **`15.08`** | **`0.9662`** | — |
+| **Multi-Scale Geodesic Uber H3 Res. 7** | `10,058` H3 Res. 7 (`3.84 km²`) → Res. 5 → 32 ADM1 → Nat. | `5.27%` | **`15.37`** | `0.9622` | **`78.7%`** *(double-nested)* |
+| **Empirical-Bayes `0.1°` Hierarchical Shrinkage** | `464` `0.1°` cells → **32 ADM1 Published Series** (`harmonized_provinces_monthly.csv/.parquet`) | **`2.50%`** | **`15.08`** | **`0.9661`** | **`78.8%`** *(sub-national 32 prov.)* |
 
-*(Note: Hierarchical `0.1°` constants `K_p=500, K_c=100` were chosen among 5 tested settings; province-year median error is `~13.9%` and single-cell annual error remains `~34%`.)*
+- **Non-Circular Out-of-Block 2012 Cutover Verification (`out_of_block_jump_verification`):** Even when trained **exclusively on `2017–2026`** (zero overlap with either `2007–2011` or `2012–2016`) and tested blind on `2012–2016`, the harmonization collapses the raw **`×4.52`** step jump to **`×0.897`** (vs. `×0.916` MODIS control; LOYO OOS `×0.899`) and raw FRP **`×1.20`** to **`×0.871`** (vs. `×0.880` MODIS control).
+*(Note: Hierarchical `0.1°` uses `K_p=300, K_c=100` and publishes downloadable `2000–2026` monthly provincial series with out-of-sample `80% PI` bands; single-cell annual error remains `~34%`.)*
 
 ### Country-Outline Clipping (`14,572` Removed), ADM1 Attribution & `811` Persistent Sources
 - **Country-Outline Clipping (`pipeline/clean.py`):** Clips raw detections against the Dominican Republic national outline (`static/world_50m.json`, 1:50M, ~2–4 km precision), removing **`14,572` trans-border (Haiti) and marine detections** (`MODIS: 33,160 → 30,653`; `VIIRS: 106,782 → 94,717` per `data/processed/meta.json`), followed by attribution across **32 official provinces** (`geoBoundaries ADM1`, `pipeline/geo.py`).
@@ -58,19 +59,33 @@ Every reconstructed post-2012 month in `/api/climatology` and `[ ↓ EXPORT CSV 
 
 Both forecast tiers are reported side-by-side from their locked out-of-sample test JSONs:
 
-| Forecast Tier | Model & Features | Locked Test Set | `+24h` / `+48h` / `+72h` ROC-AUC | Brier Skill vs. Baseline | Measured Batch Latency (`465` cells) |
-| --- | --- | --- | :---: | :---: | :---: |
-| **DR Daily (`daily_model_metrics.json`)** | `HistGradientBoostingClassifier` (histogram GBDT) + Isotonic (`22` features: 13 NASA POWER/FWI + 7 fire lags + 2 DOY) | `2023–2026` (`608,220` rows; base rate `1.94%–5.10%`) | **`0.8183` / `0.8102` / `0.8045`** (`PR-AUC 0.125`, `6.5×` base rate) | **`+2.24%` / `+2.82%` / `+3.27%`** vs. cell×month climatology (`0.779`) | **`~6.5 ms`** (`+24h`) / **`~19.5 ms`** (all 3 horizons) |
-| **Global GFA (`global_fire_model_metrics.json`)** | Empirical `1°` cell×month prior + Isotonic (`13,364` cells, **location + month only, no weather**) | `2022–2025` (`~19.5M` windows, `3,201,278` fires) | **`0.9413` / `0.9367` / `0.9323`** | **`+36.9%` / `+43.1%` / `+46.4%`** vs. global-month baseline | `<1 ms` lookup |
+| Forecast Tier | Model & Features | Locked Test Set | `+24h` / `+48h` / `+72h` ROC-AUC | PR-AUC / PSS / ECE (`+24h`) | Brier Skill vs. Baseline | Measured Batch Latency (`465` cells) |
+| --- | --- | --- | :---: | :---: | :---: | :---: |
+| **DR Daily · S-NPP 15-Yr (`daily_model_metrics.json`)** | `HistGradientBoostingClassifier` + Isotonic (**`29` physical features**: 12 fire/FRP `24h/48h/7d` lags + 5 clim/DOY + 2 SRTM DEM `elev/slope` + 10 POWER/FWI) | `2023–2026` (`608,220` rows; base rate `1.94%–5.10%`) | **`0.8236` / `0.8138` / `0.8075`** | **`PR 0.1381`** (`7.1×` base) · **`PSS 0.4889`** · `ECE 0.0032` (`FAR 0.948`, `FNR 0.235`) | **`+2.93%` / `+3.39%` / `+3.88%`** vs. cell×month clim. (`0.779`) | **`~6.5 ms`** (`+24h`) / **`~19.5 ms`** (3 horizons) |
+| **DR Daily · Observable `NOAA-20` Target (`daily_model_noaa20.pkl`)** | Same **`29` physical features**, trained & evaluated directly on active `VIIRS NOAA-20` (`27,878` events `2018–2025`) | `2024–2025` (`243,660` rows; active NRT sensor) | **`0.8181` / `0.8078` / `0.8031`** | **`PR 0.1330`** · **`PSS 0.4895`** · **`ECE 0.0030`** (`FAR 0.937`, `FNR 0.299`) | **`+1.94%` / `+2.44%` / `+2.87%`** vs. cell×month clim. | **`~6.5 ms`** (`+24h`) · 1:1 live `NOAA-20` feed |
+| **Global GFA (`global_fire_model_metrics.json`)** | Empirical `1°` cell×month prior + per-horizon Isotonic (`13,364` cells, **location + month only, no weather**) | `2022–2025` (`~19.5M` windows, `3,201,278` fires) | **`0.9413` / `0.9367` / `0.9323`** | `PR 0.5736` (`+24h`) | **`+36.9%` / `+43.1%` / `+46.4%`** vs. global-month baseline | `<1 ms` lookup |
 
-- **Live Atmospheric Physics & Accessible Cartography (`/mapa`):** Computes on-demand **Tetens VPD (kPa)**, **Van Wagner Canadian FWI (FFMC / BUI / FWI)**, AWS Terrarium DEM slope (`~72.3 m` spacing across `465` DR cells), and **NASA GEOS-FP** wind vectors, with CVD-safe palettes (`IGNIS | VIRIDIS | CIVIDIS`), freehand polygon/circle exports (`CSV` / `.xls` / `GeoJSON`), and keyless public CARTO basemaps.
+**Fair `+24h` Baseline Ablation (`2023–2026`, `608,220` rows, `daily_model_metrics.json`):**
+- `Climatología celda×mes`: `ROC 0.7792` | `PR 0.0921` | `Brier 0.01829` (`0.00%`) | `PSS 0.4120` | `ECE 0.0033`
+- `Persistencia 7 días (calibrada isotónica)`: `ROC 0.7949` | `PR 0.0953` | `Brier 0.01823` (`+0.32%`) | `PSS 0.4472` | `ECE 0.0037`
+- `FWI Van Wagner puro (sin IA, calibrado)`: `ROC 0.6915` | `PR 0.0383` | `Brier 0.01888` (`-3.22%`) | `PSS 0.2782` | `ECE 0.0060`
+- `IGNIS diario · sin clima (19 feats fuego + FRP + DEM)`: `ROC 0.8188` | `PR 0.1313` | `Brier 0.01778` (`+2.78%`) | `PSS 0.4784` | `ECE 0.0028`
+- `IGNIS diario · 29 features (FIRMS + FRP + DEM + FWI)`: **`ROC 0.8236`** | **`PR 0.1381`** | **`Brier 0.01775` (`+2.93%`)** | **`PSS 0.4889`** | **`ECE 0.0032`**
+
+- **Live Integrity & Prospective Auditability (`/mapa` & `forecast_ledger.jsonl`):**
+  - Explicit probability validation states (`validated_model`, `climatology`, `unsupported` — unsupported `1°` cells return `probability: null`, never silent fallbacks); per-horizon `+24h/+48h/+72h` isotonic calibrators on `1°` GFA cells; native `0.35°` **NASA GEOS-FP** sampling across all 50 active clusters (cones disabled on `1°` climatological cells and whenever no native wind vector exists).
+  - Single-satellite **`VIIRS NOAA-20`** 7-day NRT auto-refresh with spatiotemporal deduplication (`lat, lon, date, acq_time, satellite`) matching `daily_model_noaa20.pkl` 1:1 without 2-satellite feature inflation.
+  - Independent `data_timestamp` and `html_timestamp` in `_MAP_CACHE` (refreshing `/api/focos` invalidates cached HTML), append-only **SHA-256 hash-chained `data/processed/forecast_ledger.jsonl`**, pinned runtime versions (`requirements-lock.txt`, `scikit-learn==1.9.1`), and offline automated unit tests (`python -m unittest discover -s tests -v`).
 
 ### Running Locally & Reproducing Metrics on a Clean Clone
 
 ```bash
-# Install dependencies into a virtual environment
+# Install exact pinned dependencies into a virtual environment
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-lock.txt
+
+# Run automated offline unit tests (< 5 seconds)
+python -m unittest discover -s tests -v
 
 # Run internal reproducibility & file-integrity self-check (no data/raw/ or API keys needed)
 python -m pipeline.audit --offline
@@ -98,21 +113,21 @@ This repository uses dual OSI / Open-Knowledge licensing aligned with NASA Open 
 ### Pitch Video (`30s`) vs. Final Code Traceability
 To ensure full transparency between our 30-second hackathon pitch video and the final repository:
 
-| 30s Pitch Prototype Metric | Final Repository Value | Source File |
+| 30s Pitch Video Metric | Final Repository Value (Blind Out-of-Sample) | Source File |
 | --- | --- | --- |
-| `×4.52 → ×0.92`, `FRP ×1.20` | **`×4.52 → ×0.91/×0.92`**, **`FRP ×1.20`** (exact) | `data/processed/harmonization_audit.json` |
-| `Uber H3 Res. 7` | **`10,058` H3 Res. 7 cells (`3.84 km²` measured, `MAE 15.37`, `r = 0.962`)** + `0.1°` (`465`-cell) operational grid | `pipeline/harmonize.py:h3_res7_hierarchical_loyo` |
-| `±2.4%` LOYO error | **`2.58%`** national annual median error (`0.1°` hierarchical LOYO) / **`6.29%`** production flat ensemble | `data/processed/harmonization_audit.json` |
-| `0.823 ROC-AUC / 0.131 PR-AUC` | **`0.8183 ROC-AUC / 0.1254 PR-AUC`** (`+24h` locked `2023–2026` DR test, `6.5×` base rate; `0.8206` monthly ensemble) | `data/processed/daily_model_metrics.json` |
-| `LightGBM / 29 features / 12.4 ms` | **`HistGradientBoostingClassifier`** (scikit-learn histogram GBDT, `22` features + Isotonic), **`~6.5 ms`** (`+24h`) / **`~19.5 ms`** (all 3 horizons, `465` cells) | `pipeline/daily_model.py`, `harmonization_audit.json` |
+| `×4.52 → ×0.92`, `FRP ×1.20` | **`×4.52 → ×0.91/×0.92`** (Out-of-block `2017–2026` blind: **`×0.897`**), **`FRP ×1.20`** (exact) | `data/processed/harmonization_audit.json` |
+| `Uber H3 Res. 7` | **`10,058` H3 Res. 7 cells (`3.84 km²` measured, `MAE 15.37`, `r = 0.962`)** + `0.1°` (`465`-cell) operational grid & published 32-province series | `pipeline/harmonize.py`, `harmonized_provinces_monthly.csv` |
+| `±2.4%` LOYO error | **`2.50%`** national annual median error (`0.1°` hierarchical LOYO, `MAE 15.08`, `78.8%` 32-province `80% PI`) / **`6.29%`** flat ensemble | `data/processed/harmonization_audit.json` |
+| `0.823 ROC-AUC / 0.131 PR-AUC` | **`0.8236 ROC-AUC / 0.1381 PR-AUC`** (`+24h` locked `2023–2026` S-NPP, `PSS 0.4889`, `ECE 0.0032`) + **`0.8181 ROC-AUC / 0.1330 PR-AUC / PSS 0.4895`** on observable `NOAA-20` (`2024–2025`) | `data/processed/daily_model_metrics.json` |
+| `LightGBM / 29 features / 12.4 ms` | **`HistGradientBoostingClassifier`** (histogram GBDT, exact **`29` physical features** + Isotonic), **`~6.5 ms`** (`+24h`, `465` cells) | `pipeline/daily_model.py`, `harmonization_audit.json` |
 
 ### Declared Scientific Limitations
 1. **Thermal Hotspots ≠ Burned Area Perimeters:** Each point represents instantaneous radiative heat detection inside a satellite footprint (`~375 m` or `~1 km`), not burned area or distinct fire incident counts.
 2. **Cloud & Dense Smoke Masking:** Mid-wave thermal channels (`3.74 µm / 3.96 µm`) cannot penetrate optically thick clouds; zero detections under heavy cloud cover represent a lower bound.
 3. **Pre-2012 Sub-Resolution Micro-Burns:** In cells where `2000–2011` had only sub-`1 km` burns missed by MODIS, reconstructed pre-2012 values remain zero rather than synthesizing detections.
-4. **Global Forecast Scope & Spread Limits (`global_fire_model_metrics.json`):** The global `ROC-AUC 0.941` model uses location and month only (no weather forecast) benchmarked against a location-agnostic global monthly baseline. Global spread speed improves MAE by **`+5.05%`** (`0.439` vs. `0.462 km/day`), while historical direction-sector accuracy (`27.6%` vs. `27.5%` baseline) shows negligible skill; GEOS-FP wind vectors represent wind-driven scenarios, not validated fire perimeters.
-5. **Post-EOL Cross-Sensor & Weather Domain Shift:** The DR daily model (`ROC-AUC 0.818`) was trained on historical Suomi-NPP events and NASA POWER reanalysis, whereas live NRT runs on NOAA-20/NOAA-21 (which showed a `+6.4%` pre-EOL count ratio vs. S-NPP) and Open-Meteo forecasts; post-Nov 2026 NRT cross-sensor drift is not yet independently validated.
-6. **Internal Self-Check & File-Integrity Scope:** `python -m pipeline.audit` (`audit_report.json` and `harmonization_audit.json`) is an **internal self-check script** written by this team — **this project has not been externally audited, certified, or endorsed by NASA**. SHA-256 checks verify local file integrity against expected checksums (not external data authenticity or scientific correctness). Multi-gigabyte raw archives under `data/raw/` are excluded via `.gitignore`; on a clean GitHub clone, `python -m pipeline.audit --offline` recomputes the bundled processed metrics (`raw_files_present: false`).
+4. **Global Forecast Scope & Spread Limits (`global_fire_model_metrics.json`):** The global `ROC-AUC 0.941` model uses location and month only (no weather forecast) benchmarked against a location-agnostic global monthly baseline. Global spread speed improves MAE by **`+5.05%`** (`0.439` vs. `0.462 km/day`), while historical direction-sector accuracy (`27.6%` vs. `27.5%` baseline) shows negligible skill; GEOS-FP wind vectors represent orientation scenarios, not validated fire perimeters, and cones are disabled on `1°` climatological cells.
+5. **Weather Domain Shift & Rare-Event FAR:** While the live daily target is now trained and evaluated directly on the active single-satellite **`VIIRS NOAA-20`** sensor (`daily_model_noaa20.pkl`, eliminating S-NPP retirement and 2-satellite feature shift), historical training uses NASA POWER reanalysis whereas live inference uses Open-Meteo forecasts; moreover, given the `~1.9%` daily cell prevalence, high recall (`TPR ~70–77%`) still entails high cell-day `FAR (~0.94)` at the PSS-optimal alert threshold.
+6. **Internal Self-Check & File-Integrity Scope:** `python -m pipeline.audit` (`audit_report.json` and `harmonization_audit.json`) is an **internal self-check script** written by this team — **this project has not been externally audited, certified, or endorsed by NASA or CONAE**. SHA-256 checks and `forecast_ledger.jsonl` verify local file integrity and append-only forecast provenance (not external certification). Multi-gigabyte raw archives under `data/raw/` are excluded via `.gitignore`; on a clean GitHub clone, `python -m pipeline.audit --offline` and `python -m unittest discover -s tests -v` verify the bundled processed artifacts (`raw_files_present: false`).
 
 ---
 
@@ -121,4 +136,4 @@ To ensure full transparency between our 30-second hackathon pitch video and the 
 - **NASA FIRMS (LANCE / EOSDIS):** MODIS Collection 6.1 (`MOD14 / MYD14 / MCD14DL`, Terra & Aqua, `1 km`) and VIIRS `375 m` (`VNP14IMG / VNP14IMGT` Suomi-NPP archive, `VJ114IMGT` NOAA-20, `VJ214IMGT` NOAA-21).
 - **NASA Global Fire Atlas (ORNL DAAC / GFA, Zenodo `17669692`), NASA POWER & NASA GEOS-FP:** Historical ignition/spread priors, daily meteorological reanalysis, and live `+24h/+48h/+72h` wind forecasts.
 - **Topography & Administrative Boundaries:** AWS Registry of Open Data Terrarium elevation tiles (`186` tiles, open SRTM/DEM derivatives), Natural Earth 1:50M country outline (`static/world_50m.json`), `geoBoundaries ADM1` 32 Dominican provinces (`static/dom_provinces.geojson`), and `Open-Meteo`.
-- **Brand Notice:** Independent open-science project created for the **2026 NASA International Space Apps Challenge**. Uses publicly accessible NASA Earthdata datasets without displaying official NASA logos and has not been audited, certified, or endorsed by NASA.
+- **Brand Notice:** Independent open-science project created for the **2026 NASA International Space Apps Challenge**. Uses publicly accessible NASA Earthdata datasets without displaying official NASA logos and has not been audited, certified, or endorsed by NASA or CONAE.

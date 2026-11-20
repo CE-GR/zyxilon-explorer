@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-20T04:43:53+00:00",
+  "generated_utc": "2026-11-20T06:17:54+00:00",
   "checks": {
     "daily_source_hash_incendios": {
       "ok": true,
@@ -17,7 +17,10 @@
         24,
         48,
         72
-      ]
+      ],
+      "artifact_sha256": "04a2ff1994df870179d3b02b7723120a059c6c4f9d8200fde5af41441b8032a5",
+      "artifact_sha256_verified": true,
+      "sklearn_runtime_version": "1.9.1"
     },
     "daily_test_split": {
       "ok": true,
@@ -33,30 +36,93 @@
       "ok": true,
       "model_class": "HistGradientBoostingClassifier + IsotonicRegression",
       "grid_degrees": 0.1,
-      "n_features": 22,
+      "n_features": 29,
       "horizons": {
         "+24h": {
-          "roc_auc": 0.8183,
+          "roc_auc": 0.8236,
+          "pr_auc": 0.1381,
           "clim_roc_auc": 0.7792,
-          "brier": 0.01788,
+          "brier": 0.01775,
           "clim_brier": 0.01829,
-          "brier_skill_vs_cell_month_pct": 2.24,
+          "brier_skill_vs_cell_month_pct": 2.95,
+          "pss": 0.4889,
+          "far": 0.9482,
+          "fnr": 0.2347,
+          "ece": 0.00325,
           "ok": true
         },
         "+48h": {
-          "roc_auc": 0.8102,
+          "roc_auc": 0.8138,
+          "pr_auc": 0.1949,
           "clim_roc_auc": 0.7757,
-          "brier": 0.03175,
+          "brier": 0.03156,
           "clim_brier": 0.03267,
-          "brier_skill_vs_cell_month_pct": 2.82,
+          "brier_skill_vs_cell_month_pct": 3.4,
+          "pss": 0.4722,
+          "far": 0.9081,
+          "fnr": 0.2529,
+          "ece": 0.00672,
           "ok": true
         },
         "+72h": {
-          "roc_auc": 0.8045,
+          "roc_auc": 0.8075,
+          "pr_auc": 0.2427,
           "clim_roc_auc": 0.774,
-          "brier": 0.04354,
+          "brier": 0.04326,
           "clim_brier": 0.04501,
-          "brier_skill_vs_cell_month_pct": 3.27,
+          "brier_skill_vs_cell_month_pct": 3.89,
+          "pss": 0.4586,
+          "far": 0.8768,
+          "fnr": 0.2579,
+          "ece": 0.00894,
+          "ok": true
+        }
+      }
+    },
+    "dr_daily_observable_noaa20_target": {
+      "ok": true,
+      "split": {
+        "train": "2018–2022",
+        "calibracion": "2023",
+        "prueba": "2024–2025"
+      },
+      "test_rows": 243660,
+      "artifact_sha256_verified": true,
+      "horizons": {
+        "+24h": {
+          "roc_auc": 0.8181,
+          "pr_auc": 0.133,
+          "brier": 0.01827,
+          "clim_brier": 0.01863,
+          "brier_skill_vs_cell_month_pct": 1.93,
+          "pss": 0.4895,
+          "far": 0.9371,
+          "fnr": 0.2989,
+          "ece": 0.00302,
+          "ok": true
+        },
+        "+48h": {
+          "roc_auc": 0.8078,
+          "pr_auc": 0.1995,
+          "brier": 0.03245,
+          "clim_brier": 0.03326,
+          "brier_skill_vs_cell_month_pct": 2.44,
+          "pss": 0.4662,
+          "far": 0.8877,
+          "fnr": 0.331,
+          "ece": 0.00699,
+          "ok": true
+        },
+        "+72h": {
+          "roc_auc": 0.8031,
+          "pr_auc": 0.2469,
+          "brier": 0.04453,
+          "clim_brier": 0.04584,
+          "brier_skill_vs_cell_month_pct": 2.86,
+          "pss": 0.4541,
+          "far": 0.8503,
+          "fnr": 0.3369,
+          "ece": 0.00848,
           "ok": true
         }
       }
@@ -96,15 +162,15 @@
       "raw_count_jump": 4.52,
       "harmonized_jump": 0.91,
       "raw_frp_jump": 1.2,
-      "hierarchical_01deg_annual_median_err_pct": 2.58,
+      "hierarchical_01deg_annual_median_err_pct": 2.5,
       "h3_res7_cells": 10058,
       "h3_res7_mean_area_km2": 3.84,
       "h3_res7_monthly_mae": 15.37,
       "counts_double_nested_oos_pi80_coverage_pct": 78.7,
-      "frp_double_nested_oos_pi80_coverage_pct": 78.7,
+      "frp_double_nested_oos_pi80_coverage_pct": 78.2,
       "h3_res7_double_nested_oos_pi80_coverage_pct": 78.7,
       "strict_noncircular_oos_pi80_coverage_pct": 78.7,
-      "dr_daily_24h_batch_latency_ms": 6.89
+      "dr_daily_24h_batch_latency_ms": 8.82
     },
     "dem_source_hashes_and_coverage": {
       "ok": true,
@@ -202,6 +268,52 @@
       "mae_km_day": 0.4385631063214287,
       "baseline_mae_km_day": 0.46190059111057247,
       "mae_skill": 0.05052490782276797
+    },
+    "nasa_geos_fp_live_wind": {
+      "ok": true,
+      "source": "NASA GEOS-FP (experimental forecast)",
+      "locations_by_horizon": {
+        "24": [
+          "18.48,-69.90",
+          "-15.78,-47.93"
+        ],
+        "48": [
+          "18.48,-69.90",
+          "-15.78,-47.93"
+        ],
+        "72": [
+          "18.48,-69.90",
+          "-15.78,-47.93"
+        ]
+      },
+      "forecast_run_valid_times": {
+        "24": {
+          "18.48,-69.90": "2026-11-21T04:30:00+00:00",
+          "-15.78,-47.93": "2026-11-21T04:30:00+00:00"
+        },
+        "48": {
+          "18.48,-69.90": "2026-11-22T04:30:00+00:00",
+          "-15.78,-47.93": "2026-11-22T04:30:00+00:00"
+        },
+        "72": {
+          "18.48,-69.90": "2026-11-23T04:30:00+00:00",
+          "-15.78,-47.93": "2026-11-23T04:30:00+00:00"
+        }
+      }
+    },
+    "rd_live_weather_coverage": {
+      "ok": true,
+      "cells_with_daily_weather": 465,
+      "cells_expected": 465,
+      "hourly_nodes": 34,
+      "hourly_rows": 2482
+    },
+    "prospective_forecast_ledger_chain": {
+      "ok": true,
+      "entries": 1,
+      "latest_utc_date": "2026-11-20",
+      "latest_entry_sha256": "1c1a82f44653feb295c94ad15643b30a1cf35ba6e0b062a66c2f82cbee5a3c93",
+      "latest_model_sha256": "0ef78a2c493cdf4e3b3de87ad1db665434f6afefe264230c7dfcb767e6aca382"
     }
   },
   "data_availability": {
@@ -213,6 +325,12 @@
     "rows": 680010,
     "daily_rd_probability_available": true,
     "message": "Constelación VIIRS 375m activa (NOAA-20/21 cubren el feed S-NPP vacío)"
+  },
+  "verification_environment": {
+    "mode": "full_local_with_live_checks",
+    "raw_dem_dir_present": true,
+    "raw_gfa_zip_present": true,
+    "note": "Raw source archives under data/raw/ are excluded from git and ZIP distributions via .gitignore. When raw_files_present is False (clean clone / ZIP), DEM and GFA checks validate the bundled processed artifacts and embedded SHA-256 / Zenodo MD5 provenance manifests."
   },
   "all_checks_pass": true
 }

@@ -1,16 +1,46 @@
 {
-  "generated_utc": "2026-11-20T04:44:56+00:00",
+  "generated_utc": "2026-11-20T06:24:44+00:00",
   "grid_degrees": 0.1,
   "active_cells_total": 465,
   "jump_metrics_counts_2007_2011_vs_2012_2016": {
     "raw_viirs_px_ratio": 4.52,
     "harmonized_ratio": 0.91,
+    "loyo_oos_ratio": 0.899,
+    "out_of_block_2017_2026_blind_ratio": 0.897,
     "modis_control_ratio": 0.92
   },
   "jump_metrics_frp_2007_2011_vs_2012_2016": {
     "raw_viirs_frp_ratio": 1.2,
     "harmonized_frp_ratio": 0.89,
+    "loyo_oos_frp_ratio": 0.874,
+    "out_of_block_2017_2026_blind_frp_ratio": 0.871,
     "modis_frp_control_ratio": 0.88
+  },
+  "out_of_block_jump_verification": {
+    "train_block_years": [
+      2017,
+      2026
+    ],
+    "blind_test_after_years": [
+      2012,
+      2016
+    ],
+    "reference_before_years": [
+      2007,
+      2011
+    ],
+    "counts": {
+      "raw_viirs_px_ratio": 4.525,
+      "modis_control_ratio": 0.916,
+      "loyo_oos_ratio": 0.899,
+      "out_of_block_2017_2026_blind_ratio": 0.897
+    },
+    "frp": {
+      "raw_viirs_frp_ratio": 1.197,
+      "modis_frp_control_ratio": 0.88,
+      "loyo_oos_frp_ratio": 0.874,
+      "out_of_block_2017_2026_blind_frp_ratio": 0.871
+    }
   },
   "annual_reference_counts": {
     "2011_modis": 1726,
@@ -28,29 +58,136 @@
       1.464
     ],
     "counts_double_nested_oos_coverage_pct": 78.7,
+    "counts_nested_method_selection_oos_coverage_pct": 78.7,
+    "counts_fixed_method_double_nested_oos_coverage_pct": 78.7,
     "counts_double_nested_hits": "137/174",
-    "frp_double_nested_oos_coverage_pct": 78.7,
-    "frp_double_nested_hits": "137/174",
+    "counts_selected_methods_across_outer_folds": [
+      "ensamble_hibrido_loyo",
+      "fisico_radiometrico"
+    ],
+    "frp_double_nested_oos_coverage_pct": 78.2,
+    "frp_nested_method_selection_oos_coverage_pct": 78.2,
+    "frp_fixed_method_double_nested_oos_coverage_pct": 78.7,
+    "frp_double_nested_hits": "136/174",
+    "frp_fixed_method_double_nested_hits": "137/174",
+    "frp_selected_methods_across_outer_folds": [
+      "loglineal_frp_temporada",
+      "razon_frp"
+    ],
     "frp_method": "loglineal_frp_temporada",
     "strict_noncircular_oos_coverage_pct": 78.7,
     "calibrated_loyo_coverage_pct": 79.3,
-    "note": "True double-nested LOYO: for every held-out outer year y, an inner LOYO runs strictly on outer_train (years != y) so year y never participates in inner model fitting, inner residuals, or q10/q90 quantile calibration. Evaluated independently for both hotspot counts and FRP (MW)."
+    "note": "Full double-nested LOYO with inner-fold method selection: for every held-out outer year y, all candidate methods are evaluated strictly inside outer_train (years != y) via inner LOYO to select the fold winner m*(outer_train) and calibrate (q10, q90) quantiles before scoring year y."
   },
   "hierarchical_shrinkage_01deg_benchmark": {
     "method": "hierarchical_eb_shrinkage_loyo",
     "hierarchy": "0.1deg_cell -> 32_adm1_provinces -> national",
-    "k_prov": 500.0,
+    "k_prov": 300.0,
     "k_cell": 100.0,
     "active_cells": 464,
     "provinces_covered": 32,
-    "national_annual_median_err_pct": 2.58,
+    "national_annual_median_err_pct": 2.5,
     "national_monthly_mae": 15.08,
-    "national_monthly_r": 0.9662,
-    "national_net_bias_pct": 0.479,
+    "national_monthly_r": 0.9661,
+    "national_net_bias_pct": 0.48,
     "mean_direct_cell_weight_pct": 53.0,
+    "provincial_subnational_oos_pi80_coverage_pct": 78.8,
+    "provincial_pi80_bands_count": 32,
+    "provincial_pi80_top_provinces": {
+      "Pedernales": {
+        "pi80_mult": [
+          0.343,
+          2.625
+        ],
+        "oos_pi80_coverage_pct": 78.5,
+        "monthly_mae": 4.42
+      },
+      "Barahona": {
+        "pi80_mult": [
+          0.431,
+          1.822
+        ],
+        "oos_pi80_coverage_pct": 78.0,
+        "monthly_mae": 3.22
+      },
+      "San Juan": {
+        "pi80_mult": [
+          0.502,
+          1.786
+        ],
+        "oos_pi80_coverage_pct": 79.2,
+        "monthly_mae": 3.07
+      },
+      "Bahoruco": {
+        "pi80_mult": [
+          0.35,
+          2.237
+        ],
+        "oos_pi80_coverage_pct": 79.5,
+        "monthly_mae": 3.06
+      },
+      "Azua": {
+        "pi80_mult": [
+          0.442,
+          1.682
+        ],
+        "oos_pi80_coverage_pct": 79.9,
+        "monthly_mae": 2.53
+      },
+      "San Pedro de Macorís": {
+        "pi80_mult": [
+          0.435,
+          1.907
+        ],
+        "oos_pi80_coverage_pct": 77.9,
+        "monthly_mae": 2.46
+      },
+      "Monte Cristi": {
+        "pi80_mult": [
+          0.44,
+          1.68
+        ],
+        "oos_pi80_coverage_pct": 78.7,
+        "monthly_mae": 2.42
+      },
+      "Monte Plata": {
+        "pi80_mult": [
+          0.403,
+          1.659
+        ],
+        "oos_pi80_coverage_pct": 79.4,
+        "monthly_mae": 2.05
+      },
+      "La Estrelleta": {
+        "pi80_mult": [
+          0.404,
+          1.721
+        ],
+        "oos_pi80_coverage_pct": 79.1,
+        "monthly_mae": 1.98
+      },
+      "Independencia": {
+        "pi80_mult": [
+          0.424,
+          1.868
+        ],
+        "oos_pi80_coverage_pct": 78.6,
+        "monthly_mae": 1.75
+      }
+    },
     "aqua_drift_ratio_2012_2021": 0.1973,
     "aqua_drift_ratio_2025": 0.2241,
     "aqua_drift_ratio_2026": 0.2317
+  },
+  "published_provincial_series": {
+    "parquet": "harmonized_provinces_monthly.parquet",
+    "csv": "harmonized_provinces_monthly.csv",
+    "provinces": 32,
+    "rows": 7143,
+    "span": [
+      "2000-11-01",
+      "2026-08-01"
+    ]
   },
   "h3_res7_multiscale_benchmark": {
     "method": "h3_res7_multiscale_hierarchical_loyo",
@@ -74,11 +211,11 @@
   },
   "dr_daily_inference_latency": {
     "model_class": "HistGradientBoostingClassifier + IsotonicRegression",
-    "n_features": 22,
+    "n_features": 29,
     "batch_cells": 465,
-    "single_horizon_24h_median_ms": 8.61,
-    "single_horizon_24h_p95_ms": 8.98,
-    "all_3_horizons_median_ms": 25.74,
-    "all_3_horizons_p95_ms": 26.79
+    "single_horizon_24h_median_ms": 8.68,
+    "single_horizon_24h_p95_ms": 10.65,
+    "all_3_horizons_median_ms": 26.43,
+    "all_3_horizons_p95_ms": 31.43
   }
 }

@@ -2641,7 +2641,10 @@
                 else if (p.kind && (p.kind.indexOf("Probabilidad GFA") !== -1 || p.kind.indexOf("Ignición Diaria") !== -1 || p.kind.indexOf("Global Fire Atlas") !== -1)) modeledCellCount++;
 
                 var ramp = COLOR_RAMPS[currentRampKey] || COLOR_RAMPS.ignis;
-                var alertaTxt = !hasProbability ? (isActiveOrigin ? "Observed Hotspot" : "No Probability") : "Calibrated P(event)";
+                var pStatus = p.probability_status || (hasProbability ? (p.is_rd ? "validated_model" : "climatology") : "unsupported");
+                var alertaTxt = pStatus === "validated_model"
+                    ? "VALIDATED MODEL"
+                    : (pStatus === "climatology" ? "1° CLIMATOLOGY" : (isActiveOrigin ? "OBSERVED HOTSPOT (UNSUPPORTED CELL)" : "UNSUPPORTED CELL"));
                 var color = !hasProbability ? ramp.gfa : (isCritical ? ramp.critical : (isHigh ? ramp.high : ramp.mod));
                 var coreGrad = !hasProbability
                     ? ramp.gfaGrad

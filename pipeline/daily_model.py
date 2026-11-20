@@ -1,27 +1,34 @@
-"""Modelo DIARIO de focos a +24h / +48h / +72h para República Dominicana.
+"""Modelo DIARIO de focos a +24h / +48h / +72h para República Dominicana (29 features físicos).
 
-Objetivo honesto y verificable:
-    Para cada celda 0.1° (~11 km) y día t, estimar la probabilidad de que
-    aparezca al menos un evento VIIRS (S-NPP, 375 m) en la ventana (t, t+h],
-    con h = 1, 2, 3 días.
+Incluye dos evaluaciones temporales estrictas (sin fuga):
+1. Serie histórica completa VIIRS S-NPP (2012–2026):
+   - Entrenamiento: 2012–2021 · Calibración: 2022 · Prueba ciega: 2023–2026 (607,755 filas).
+2. Objetivo operativo observable VIIRS NOAA-20 (2018–2026, sensor NRT activo tras el retiro de S-NPP):
+   - Entrenamiento: 2018–2022 · Calibración: 2023 · Prueba ciega: 2024–2026.
+   - Inferencia en vivo sobre 1 solo satélite (NOAA-20) para evitar desplazamiento 2x de features.
 
-Validación temporal estricta (sin fuga):
-    - Entrenamiento: 2012–2021 · Calibración: 2022 · Prueba: 2023–2026 (nunca vistos).
-    - Climatología por celda calculada SOLO con años de entrenamiento.
-    - Comparado contra 2 líneas base: climatología celda×mes y persistencia (fuego últimos 7 días).
-    - Ablación: el mismo modelo sin variables de clima, para medir cuánto aporta el clima.
+29 features físicos (100% calculables en historia y en tiempo real):
+  - 12 Inercia térmica & historial de fuego (24h/48h/7d, vecindad 3×3 y 5×5, pulso nacional, FRP log1p).
+  - 5 Climatología estrictamente de entrenamiento & ciclo estacional (sin/cos DOY).
+  - 2 Topografía DEM Terrarium/SRTM (elev_dem_m, slope_deg).
+  - 10 Meteorología & FWI Van Wagner (NASA POWER diario en historia / Open-Meteo en vivo).
 
-Clima: NASA POWER diario (nodos 0.5°, caché local) → FWI Van Wagner al mediodía.
+Métricas operativas reportadas por horizonte (+24h, +48h, +72h):
+  ROC-AUC, PR-AUC, Brier, Brier Skill Score (BSS), Captura Top-K,
+  Peirce Skill Score (PSS = TPR - FPR en umbral fijado en año de calibración),
+  TPR, FPR, False Alarm Ratio (FAR), Miss Rate (FNR), ECE y curva de fiabilidad (10 bins).
 """
 from __future__ import annotations
 
-import json
 import hashlib
+import json
+import pickle
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
@@ -31,17 +38,43 @@ from pipeline import nasa_power
 
 OUT_METRICS = config.DATA_OUT / "daily_model_metrics.json"
 OUT_MODEL = config.DATA_OUT / "daily_model.pkl"
+OUT_MODEL_NOAA20 = config.DATA_OUT / "daily_model_noaa20.pkl"
+OUT_CELL_STATS = config.DATA_OUT / "daily_cell_stats.parquet"
+OUT_CELL_STATS_NOAA20 = config.DATA_OUT / "daily_cell_stats_noaa20.parquet"
+OUT_DEM_SLOPE = config.DATA_OUT / "rd_dem_slope.parquet"
+
 HORIZONS = (1, 2, 3)
 TRAIN_END, CAL_YEAR, TEST_START = 2021, 2022, 2023
+NOAA20_TRAIN_END, NOAA20_CAL_YEAR, NOAA20_TEST_START = 2022, 2023, 2024
 
-FIRE_FEATS = ["f_lag1", "f_3d", "f_7d", "nb_7d", "days_since_7d",
-              "clim_cell_month", "clim_cell"]
+# Exactamente 29 features físicos (100% calculables en tiempo real)
+FIRE_FEATS = [
+    "f_lag1", "f_2d", "f_7d",
+    "nb_lag1", "nb_7d", "nb2_7d",
+    "nat_1d", "nat_7d", "days_since_7d",
+    "frp_lag1", "frp_7d", "nb_frp_7d",
+    "clim_cell_month", "clim_cell", "clim_nb_month",
+]
 CAL_FEATS = ["doy_sin", "doy_cos"]
-WX_FEATS = ["fwi", "ffmc", "dmc", "dc", "isi", "bui", "vpd", "rh_noon", "t_noon",
-            "wind", "precip", "rain_7d", "dry_streak"]
+TOPO_FEATS = ["elev_dem_m", "slope_deg"]
+WX_FEATS = [
+    "fwi", "ffmc", "dmc", "dc", "isi",
+    "vpd", "rh_noon", "t_noon", "precip", "rain_7d",
+]
+ALL_WX_COLS = WX_FEATS + ["bui", "wind", "dry_streak"]
+FULL_FEATS = FIRE_FEATS + CAL_FEATS + TOPO_FEATS + WX_FEATS  # 15 + 2 + 2 + 10 = 29
+NOWX_FEATS = FIRE_FEATS + CAL_FEATS + TOPO_FEATS              # 19 features sin meteorología
 
 
 # ---------------------------------------------------------------------------
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _cells() -> pd.DataFrame:
     c = pd.read_parquet(config.DATA_OUT / "cells.parquet")[["cell_lat", "cell_lon"]].drop_duplicates()
     return c.sort_values(["cell_lat", "cell_lon"]).reset_index(drop=True)
@@ -49,6 +82,21 @@ def _cells() -> pd.DataFrame:
 
 def _cell_of(v: np.ndarray, deg: float = config.GRID_DEG) -> np.ndarray:
     return (np.floor(v / deg) * deg + deg / 2).round(3)
+
+
+def _neighborhood_lists(cells: pd.DataFrame, radius: int = 1) -> list[list[int]]:
+    lat_i = np.round((cells["cell_lat"].to_numpy() - cells["cell_lat"].min()) / 0.1).astype(int)
+    lon_i = np.round((cells["cell_lon"].to_numpy() - cells["cell_lon"].min()) / 0.1).astype(int)
+    pos = {(a, b): k for k, (a, b) in enumerate(zip(lat_i, lon_i))}
+    return [
+        [
+            pos[(a + da, b + db)]
+            for da in range(-radius, radius + 1)
+            for db in range(-radius, radius + 1)
+            if (da or db) and (a + da, b + db) in pos
+        ]
+        for a, b in zip(lat_i, lon_i)
+    ]
 
 
 def daily_weather_nodes() -> pd.DataFrame:
@@ -74,44 +122,72 @@ def _wx_features(wx: pd.DataFrame) -> pd.DataFrame:
     return wx.rename(columns={"vpd_kpa": "vpd", "wind_kmh": "wind", "precip_mm": "precip"})
 
 
-def build_panel() -> pd.DataFrame:
-    """Panel celda × día (2012–2026) con features en t y objetivos en (t, t+h]."""
+def _load_cell_dem(cells: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if not OUT_DEM_SLOPE.exists():
+        from pipeline.dem import build_rd_dem
+        build_rd_dem(cells)
+    dem = pd.read_parquet(OUT_DEM_SLOPE).copy()
+    dem["cell_lat_r"] = dem["cell_lat"].round(3)
+    dem["cell_lon_r"] = dem["cell_lon"].round(3)
+    c_tmp = cells.copy()
+    c_tmp["cell_lat_r"] = c_tmp["cell_lat"].round(3)
+    c_tmp["cell_lon_r"] = c_tmp["cell_lon"].round(3)
+    m = c_tmp.merge(dem[["cell_lat_r", "cell_lon_r", "elev_dem_m", "slope_deg", "phi_slope"]],
+                    on=["cell_lat_r", "cell_lon_r"], how="left")
+    return (
+        m["elev_dem_m"].fillna(0.0).to_numpy(np.float32),
+        m["slope_deg"].fillna(0.0).to_numpy(np.float32),
+        m["phi_slope"].fillna(0.0).to_numpy(np.float32),
+    )
+
+
+def build_panel(
+    events_path: Path | None = None,
+    train_end: int = TRAIN_END,
+) -> pd.DataFrame:
+    """Panel celda × día con los 29 features físicos en t y objetivos en (t, t+h]."""
     cells = _cells()
-    ev = pd.read_parquet(config.DATA_OUT / "viirs_events.parquet")
+    ev_path = Path(events_path) if events_path is not None else (config.DATA_OUT / "viirs_events.parquet")
+    ev = pd.read_parquet(ev_path).copy()
     ev["cell_lat"] = _cell_of(ev["lat"].to_numpy())
     ev["cell_lon"] = _cell_of(ev["lon"].to_numpy())
     ev["date"] = pd.to_datetime(ev["date"]).dt.normalize()
+    ev["frp"] = pd.to_numeric(ev.get("frp", 0.0), errors="coerce").fillna(0.0).clip(lower=0.0)
 
-    days = pd.date_range("2012-01-20", ev["date"].max(), freq="D")
+    days = pd.date_range(ev["date"].min(), ev["date"].max(), freq="D")
     nC, nD = len(cells), len(days)
     cidx = {(a, b): i for i, (a, b) in enumerate(zip(cells["cell_lat"], cells["cell_lon"]))}
     didx = pd.Series(np.arange(nD), index=days)
 
     F = np.zeros((nD, nC), dtype=np.float32)
+    FRP = np.zeros((nD, nC), dtype=np.float32)
     ci = np.array([cidx.get((a, b), -1) for a, b in zip(ev["cell_lat"], ev["cell_lon"])])
     di = didx.reindex(ev["date"]).to_numpy()
     ok = (ci >= 0) & ~np.isnan(di)
     np.add.at(F, (di[ok].astype(int), ci[ok]), 1.0)
+    np.add.at(FRP, (di[ok].astype(int), ci[ok]), ev["frp"].to_numpy(np.float32)[ok])
     B = (F > 0).astype(np.float32)
 
-    # Vecindad 3×3 (sin la propia celda)
-    lat_i = np.round((cells["cell_lat"].to_numpy() - cells["cell_lat"].min()) / 0.1).astype(int)
-    lon_i = np.round((cells["cell_lon"].to_numpy() - cells["cell_lon"].min()) / 0.1).astype(int)
-    pos = {(a, b): k for k, (a, b) in enumerate(zip(lat_i, lon_i))}
-    nb_lists = [[pos[(a + da, b + db)] for da in (-1, 0, 1) for db in (-1, 0, 1)
-                 if (da or db) and (a + da, b + db) in pos] for a, b in zip(lat_i, lon_i)]
+    nb1_lists = _neighborhood_lists(cells, radius=1)
+    nb2_lists = _neighborhood_lists(cells, radius=2)
     NB = np.zeros_like(B)
-    for k, nl in enumerate(nb_lists):
+    NB_FRP = np.zeros_like(FRP)
+    NB2 = np.zeros_like(B)
+    for k, nl in enumerate(nb1_lists):
         if nl:
             NB[:, k] = B[:, nl].sum(axis=1)
+            NB_FRP[:, k] = FRP[:, nl].sum(axis=1)
+    for k, nl in enumerate(nb2_lists):
+        if nl:
+            NB2[:, k] = B[:, nl].sum(axis=1)
 
-    def roll(M, w):  # suma de días [t-w+1, t]
+    def roll(M: np.ndarray, w: int) -> np.ndarray:
         cs = np.cumsum(M, axis=0)
         out = cs.copy()
         out[w:] = cs[w:] - cs[:-w]
         return out
 
-    def fut(M, h):  # alguno en (t, t+h]
+    def fut(M: np.ndarray, h: int) -> np.ndarray:
         cs = np.vstack([np.zeros((1, M.shape[1]), np.float32), np.cumsum(M, axis=0)])
         t = np.arange(nD)
         hi = np.minimum(t + h, nD - 1) + 1
@@ -119,144 +195,352 @@ def build_panel() -> pd.DataFrame:
         res[t + h > nD - 1] = np.nan
         return res
 
-    # días desde el último fuego
     ds = np.full((nD, nC), 7.0, dtype=np.float32)
     last = np.full(nC, -10_000)
     for t in range(nD):
         last = np.where(B[t] > 0, t, last)
         ds[t] = np.minimum(t - last, 7)
 
+    nat_1d = B.sum(axis=1, keepdims=True).repeat(nC, axis=1)
+    nat_7d = roll(B.sum(axis=1, keepdims=True), 7).repeat(nC, axis=1)
+    elev_c, slope_c, _ = _load_cell_dem(cells)
+
     frame = {
         "d": np.repeat(np.arange(nD), nC),
         "c": np.tile(np.arange(nC), nD),
         "f_lag1": B.ravel(),
-        "f_3d": roll(B, 3).ravel(), "f_7d": roll(B, 7).ravel(),
-        "f_30d": roll(B, 30).ravel(), "f_365d": roll(B, 365).ravel(),
-        "nb_7d": roll(NB, 7).ravel(), "nb_30d": roll(NB, 30).ravel(),
+        "f_2d": roll(B, 2).ravel(),
+        "f_7d": roll(B, 7).ravel(),
+        "nb_lag1": NB.ravel(),
+        "nb_7d": roll(NB, 7).ravel(),
+        "nb2_7d": roll(NB2, 7).ravel(),
+        "nat_1d": nat_1d.ravel(),
+        "nat_7d": nat_7d.ravel(),
         "days_since_7d": ds.ravel(),
+        "frp_lag1": np.log1p(FRP).ravel(),
+        "frp_7d": np.log1p(roll(FRP, 7)).ravel(),
+        "nb_frp_7d": np.log1p(roll(NB_FRP, 7)).ravel(),
+        "elev_dem_m": np.tile(elev_c, nD),
+        "slope_deg": np.tile(slope_c, nD),
     }
     for h in HORIZONS:
-        frame[f"y{h}"] = (fut(B, h) > 0).astype(np.float32).ravel()
-        frame[f"y{h}"][np.isnan(fut(B, h).ravel())] = np.nan
+        f_h = fut(B, h)
+        frame[f"y{h}"] = (f_h > 0).astype(np.float32).ravel()
+        frame[f"y{h}"][np.isnan(f_h.ravel())] = np.nan
+
     P = pd.DataFrame(frame)
     P["date"] = days[P["d"].to_numpy()]
     P["year"] = P["date"].dt.year
     P["month"] = P["date"].dt.month
     doy = P["date"].dt.day_of_year.to_numpy()
-    P["doy_sin"] = np.sin(2 * np.pi * doy / 365.25)
-    P["doy_cos"] = np.cos(2 * np.pi * doy / 365.25)
+    P["doy_sin"] = np.sin(2 * np.pi * doy / 365.25).astype(np.float32)
+    P["doy_cos"] = np.cos(2 * np.pi * doy / 365.25).astype(np.float32)
     P["cell_lat"] = cells["cell_lat"].to_numpy()[P["c"].to_numpy()]
     P["cell_lon"] = cells["cell_lon"].to_numpy()[P["c"].to_numpy()]
 
-    # Climatología SOLO con años de entrenamiento (sin fuga)
-    tr = P["year"] <= TRAIN_END
+    # Climatología estrictamente sobre años de entrenamiento (sin fuga temporal)
+    tr = P["year"] <= train_end
     cm = P[tr].groupby(["c", "month"])["f_lag1"].mean().rename("clim_cell_month")
     cc = P[tr].groupby("c")["f_lag1"].mean().rename("clim_cell")
     P = P.join(cm, on=["c", "month"]).join(cc, on="c")
+    P["clim_cell_month"] = P["clim_cell_month"].fillna(0.0).astype(np.float32)
+    P["clim_cell"] = P["clim_cell"].fillna(0.0).astype(np.float32)
 
-    # Clima del nodo POWER más cercano
+    cm_mat = np.zeros((13, nC), dtype=np.float32)
+    for (ci_k, mo_k), v in cm.items():
+        cm_mat[int(mo_k), int(ci_k)] = float(v)
+    nb_cm_mat = np.zeros_like(cm_mat)
+    for k, nl in enumerate(nb1_lists):
+        if nl:
+            nb_cm_mat[:, k] = cm_mat[:, nl].mean(axis=1)
+    P["clim_nb_month"] = nb_cm_mat[P["month"].to_numpy(), P["c"].to_numpy()]
+
     wx = _wx_features(daily_weather_nodes())
     P["plat"] = (P["cell_lat"] * 2).round() / 2
     P["plon"] = (P["cell_lon"] * 2).round() / 2
-    keep = ["date", "plat", "plon"] + [c for c in WX_FEATS]
-    P = P.merge(wx.rename(columns={"t_noon": "t_noon"})[keep], on=["date", "plat", "plon"], how="left")
+    keep = ["date", "plat", "plon"] + list(ALL_WX_COLS)
+    P = P.merge(wx[keep], on=["date", "plat", "plon"], how="left")
     return P
 
 
 # ---------------------------------------------------------------------------
-def _metrics(y, p) -> dict:
-    y = np.asarray(y); p = np.asarray(p)
-    k = max(1, int(round(y.sum())))  # mismo nº de alertas que eventos reales
+def _select_pss_threshold(y_cal: np.ndarray, p_cal: np.ndarray) -> float:
+    """Selecciona el umbral óptimo para el Índice de Peirce (PSS = TPR - FPR)
+    estrictamente sobre el conjunto de calibración (sin tocar el periodo de prueba)."""
+    y_c = np.asarray(y_cal, dtype=float)
+    p_c = np.asarray(p_cal, dtype=float)
+    pos = max(float((y_c == 1).sum()), 1.0)
+    neg = max(float((y_c == 0).sum()), 1.0)
+    cand = np.unique(np.concatenate([
+        np.linspace(0.003, 0.30, 120),
+        np.quantile(p_c, np.linspace(0.50, 0.995, 50)),
+    ]))
+    best_th, best_pss = float(np.mean(y_c)), -2.0
+    for th in cand:
+        pred = p_c >= th
+        tpr = float((pred & (y_c == 1)).sum()) / pos
+        fpr = float((pred & (y_c == 0)).sum()) / neg
+        pss = tpr - fpr
+        if pss > best_pss:
+            best_pss = pss
+            best_th = float(th)
+    return best_th
+
+
+def _reliability_and_ece(y: np.ndarray, p: np.ndarray, n_bins: int = 10) -> tuple[float, list[dict]]:
+    """Calcula Expected Calibration Error (ECE) y curva de fiabilidad por deciles/cuantiles."""
+    y = np.asarray(y, dtype=float)
+    p = np.asarray(p, dtype=float)
+    edges = np.unique(np.concatenate([[0.0], np.quantile(p, np.linspace(0.1, 0.9, n_bins - 1)), [1.0001]]))
+    curve = []
+    ece = 0.0
+    n_tot = max(len(y), 1)
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        mask = (p >= lo) & (p < hi)
+        cnt = int(mask.sum())
+        if cnt == 0:
+            continue
+        mp = float(p[mask].mean())
+        of = float(y[mask].mean())
+        ece += (cnt / n_tot) * abs(mp - of)
+        curve.append({
+            "bin_lo": round(float(lo), 4),
+            "bin_hi": round(float(min(hi, 1.0)), 4),
+            "mean_pred": round(mp, 5),
+            "obs_freq": round(of, 5),
+            "count": cnt,
+        })
+    return round(float(ece), 5), curve
+
+
+def _metrics(
+    y: np.ndarray,
+    p: np.ndarray,
+    threshold: float,
+    clim_brier: float | None = None,
+) -> dict:
+    y = np.asarray(y, dtype=float)
+    p = np.asarray(p, dtype=float)
+    k = max(1, int(round(y.sum())))
     top = np.argsort(-p)[:k]
+    brier = float(brier_score_loss(y, p))
+    bss = round(100.0 * (1.0 - brier / max(clim_brier, 1e-12)), 2) if clim_brier is not None else 0.0
+
+    pred_b = p >= threshold
+    tp = int((pred_b & (y == 1)).sum())
+    fp = int((pred_b & (y == 0)).sum())
+    fn = int(((~pred_b) & (y == 1)).sum())
+    tn = int(((~pred_b) & (y == 0)).sum())
+    tpr = tp / max(tp + fn, 1)
+    fpr = fp / max(fp + tn, 1)
+    far = fp / max(tp + fp, 1)
+    fnr = fn / max(tp + fn, 1)
+    pss = tpr - fpr
+    ece, rel_curve = _reliability_and_ece(y, p, n_bins=10)
+
     return {
         "roc_auc": round(float(roc_auc_score(y, p)), 4),
         "pr_auc": round(float(average_precision_score(y, p)), 4),
-        "brier": round(float(brier_score_loss(y, p)), 5),
+        "brier": round(brier, 5),
+        "brier_skill_vs_clim_pct": bss,
         "hit_rate_topk": round(float(y[top].mean()), 4),
         "base_rate": round(float(y.mean()), 5),
+        "pss": round(float(pss), 4),
+        "threshold_cal": round(float(threshold), 5),
+        "tpr": round(float(tpr), 4),
+        "fpr": round(float(fpr), 4),
+        "far": round(float(far), 4),
+        "fnr": round(float(fnr), 4),
+        "ece": ece,
+        "reliability_curve": rel_curve,
     }
 
 
-def _fit(X, y):
-    m = HistGradientBoostingClassifier(max_iter=300, learning_rate=0.06, max_leaf_nodes=31,
-                                       min_samples_leaf=200, l2_regularization=1.0,
-                                       random_state=42)
+def _fit(X: pd.DataFrame, y: pd.Series) -> HistGradientBoostingClassifier:
+    m = HistGradientBoostingClassifier(
+        max_iter=350,
+        learning_rate=0.04,
+        max_depth=4,
+        max_leaf_nodes=15,
+        min_samples_leaf=300,
+        l2_regularization=5.0,
+        random_state=42,
+    )
     m.fit(X, y)
     return m
 
 
-def train_and_evaluate(verbose: bool = True) -> dict:
-    P = build_panel()
+def _evaluate_split(
+    P: pd.DataFrame,
+    train_end: int,
+    cal_year: int,
+    test_start: int,
+    verbose: bool = True,
+) -> tuple[dict, dict]:
     P = P.dropna(subset=WX_FEATS)
-    tr = P[P["year"] <= TRAIN_END]
-    ca = P[P["year"] == CAL_YEAR]
-    te = P[P["year"] >= TEST_START]
+    tr = P[P["year"] <= train_end]
+    ca = P[P["year"] == cal_year]
+    te = P[P["year"] >= test_start]
     if verbose:
         print(f"Panel: {len(P):,} filas · train {len(tr):,} · cal {len(ca):,} · test {len(te):,}")
 
-    full_feats = FIRE_FEATS + CAL_FEATS + WX_FEATS
-    nowx_feats = FIRE_FEATS + CAL_FEATS
-    event_path = config.DATA_OUT / "viirs_events.parquet"
-    weather_path = config.DATA_OUT / "power_daily_nodes.parquet"
-    def _sha256(path: Path) -> str:
-        digest = hashlib.sha256()
-        with path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
-
-    report = {"objetivo": "P(≥1 evento VIIRS S-NPP en celda 0.1° en (t, t+h])",
-              "split": {"train": f"2012–{TRAIN_END}", "calibracion": str(CAL_YEAR),
-                        "prueba": f"{TEST_START}–{int(P['year'].max())}"},
-              "periodo_panel": [str(P["date"].min().date()), str(P["date"].max().date())],
-              "fuentes": {
-                  "incendios": {"archivo": "data/processed/viirs_events.parquet",
-                                "sensor": "VIIRS Suomi-NPP", "fecha_ultima": str(pd.to_datetime(pd.read_parquet(event_path)["date"]).max().date()),
-                                "sha256": _sha256(event_path)},
-                  "meteorologia": {"archivo": "data/processed/power_daily_nodes.parquet",
-                                   "proveedor": "NASA POWER diario", "sha256": _sha256(weather_path)},
-                  "features_clima": WX_FEATS,
-                  "features_fuego": FIRE_FEATS,
-                  "inferencia_clima": "Open-Meteo: variables del día actual, lluvia/racha seca calculadas solo con horas observadas hasta la consulta y viento resumido desde horas pronosticadas por horizonte.",
-              },
-              "generado_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-              "n_celdas": int(P["c"].nunique()),
-              "n_test_filas": int(len(te)), "horizontes": {}}
+    horizontes = {}
     models = {}
     for h in HORIZONS:
         yc = f"y{h}"
         trh, cah, teh = tr.dropna(subset=[yc]), ca.dropna(subset=[yc]), te.dropna(subset=[yc])
+        y_ca = cah[yc].to_numpy(dtype=float)
+        y_te = teh[yc].to_numpy(dtype=float)
         res = {}
-        # Línea base 1: climatología celda×mes, ajustada a ventana h
-        p_clim = 1 - (1 - teh["clim_cell_month"].fillna(0).to_numpy()) ** h
-        res["Climatología celda×mes"] = _metrics(teh[yc], p_clim)
-        # Línea base 2: persistencia (fuego en los últimos 7 días)
-        p_pers = (teh["f_7d"] > 0).astype(float) * 0.5 + p_clim * 0.5
-        res["Persistencia 7 días"] = _metrics(teh[yc], p_pers)
 
-        for name, feats in (("IGNIS diario · sin clima", nowx_feats),
-                            ("IGNIS diario · FIRMS + NASA POWER (FWI)", full_feats)):
+        # 1. Climatología celda×mes (ajustada a ventana h)
+        p_clim_ca = 1.0 - (1.0 - cah["clim_cell_month"].fillna(0).to_numpy()) ** h
+        p_clim_te = 1.0 - (1.0 - teh["clim_cell_month"].fillna(0).to_numpy()) ** h
+        clim_brier = float(brier_score_loss(y_te, p_clim_te))
+        th_clim = _select_pss_threshold(y_ca, p_clim_ca)
+        res["Climatología celda×mes"] = _metrics(y_te, p_clim_te, th_clim, clim_brier=clim_brier)
+
+        # 2. Persistencia 7 días (sin calibrar · ref. legacy)
+        p_pers_raw_ca = (cah["f_7d"] > 0).astype(float).to_numpy() * 0.5 + p_clim_ca * 0.5
+        p_pers_raw_te = (teh["f_7d"] > 0).astype(float).to_numpy() * 0.5 + p_clim_te * 0.5
+        th_pr = _select_pss_threshold(y_ca, p_pers_raw_ca)
+        res["Persistencia 7 días (sin calibrar)"] = _metrics(y_te, p_pers_raw_te, th_pr, clim_brier=clim_brier)
+
+        # 3. Persistencia 7 días (calibrada isotónica en año de calibración)
+        iso_pers = IsotonicRegression(out_of_bounds="clip").fit(p_pers_raw_ca, y_ca)
+        p_pers_cal_ca = iso_pers.predict(p_pers_raw_ca)
+        p_pers_cal_te = iso_pers.predict(p_pers_raw_te)
+        th_pc = _select_pss_threshold(y_ca, p_pers_cal_ca)
+        res["Persistencia 7 días (calibrada)"] = _metrics(y_te, p_pers_cal_te, th_pc, clim_brier=clim_brier)
+
+        # 4. FWI Van Wagner puro sin IA (calibrado isotónica en año de calibración)
+        iso_fwi = IsotonicRegression(out_of_bounds="clip").fit(cah["fwi"].fillna(0).to_numpy(), y_ca)
+        p_fwi_ca = iso_fwi.predict(cah["fwi"].fillna(0).to_numpy())
+        p_fwi_te = iso_fwi.predict(teh["fwi"].fillna(0).to_numpy())
+        th_fwi = _select_pss_threshold(y_ca, p_fwi_ca)
+        res["FWI Van Wagner puro (sin IA)"] = _metrics(y_te, p_fwi_te, th_fwi, clim_brier=clim_brier)
+
+        # 5 y 6. Ablación sin clima (19 features) y modelo completo (29 features)
+        for name, feats in (
+            ("IGNIS diario · sin clima", NOWX_FEATS),
+            ("IGNIS diario · FIRMS + NASA POWER (FWI)", FULL_FEATS),
+        ):
             m = _fit(trh[feats], trh[yc])
-            iso = IsotonicRegression(out_of_bounds="clip").fit(m.predict_proba(cah[feats])[:, 1], cah[yc])
-            p = iso.predict(m.predict_proba(teh[feats])[:, 1])
-            res[name] = _metrics(teh[yc], p)
+            raw_ca = m.predict_proba(cah[feats])[:, 1]
+            raw_te = m.predict_proba(teh[feats])[:, 1]
+            iso = IsotonicRegression(out_of_bounds="clip").fit(raw_ca, y_ca)
+            p_ca = iso.predict(raw_ca)
+            p_te = iso.predict(raw_te)
+            th_m = _select_pss_threshold(y_ca, p_ca)
+            res[name] = _metrics(y_te, p_te, th_m, clim_brier=clim_brier)
             if "NASA POWER" in name:
                 models[h] = (m, iso, feats)
-        report["horizontes"][f"+{24*h}h"] = res
+
+        horizontes[f"+{24*h}h"] = res
         if verbose:
-            print(f"\n=== +{24*h}h ===")
+            print(f"\n=== +{24*h}h (train<={train_end}, cal={cal_year}, test>={test_start}) ===")
             for k, v in res.items():
-                print(f"  {k:42s} AUC {v['roc_auc']:.4f}  PR {v['pr_auc']:.4f}  "
-                      f"Brier {v['brier']:.5f}  Acierto top-K {v['hit_rate_topk']:.3f}")
+                print(
+                    f"  {k:42s} AUC {v['roc_auc']:.4f}  PR {v['pr_auc']:.4f}  "
+                    f"Brier {v['brier']:.5f} ({v['brier_skill_vs_clim_pct']:+5.2f}%)  "
+                    f"PSS {v['pss']:.4f}  FAR {v['far']:.3f}  FNR {v['fnr']:.3f}  ECE {v['ece']:.4f}"
+                )
+    return horizontes, models
 
-    import pickle
+
+def train_and_evaluate(verbose: bool = True) -> dict:
+    """Entrena y evalúa el modelo de 29 features sobre S-NPP (2012–2026) y, si existe
+    viirs_noaa20_events.parquet, también sobre el objetivo operativo observable NOAA-20 (2018–2026)."""
+    event_path = config.DATA_OUT / "viirs_events.parquet"
+    weather_path = config.DATA_OUT / "power_daily_nodes.parquet"
+    noaa20_path = config.DATA_OUT / "viirs_noaa20_events.parquet"
+
+    P = build_panel(events_path=event_path, train_end=TRAIN_END)
+    P_clean = P.dropna(subset=WX_FEATS)
+    te_rows = int(len(P_clean[P_clean["year"] >= TEST_START]))
+    horizontes, models = _evaluate_split(P, TRAIN_END, CAL_YEAR, TEST_START, verbose=verbose)
+
     OUT_MODEL.write_bytes(pickle.dumps(models))
-    OUT_METRICS.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+    model_sha = _sha256(OUT_MODEL)
+    build_or_load_cell_stats(force=True, events_path=event_path, train_end=TRAIN_END, out_path=OUT_CELL_STATS)
+
+    report = {
+        "objetivo": "P(≥1 evento VIIRS S-NPP en celda 0.1° en (t, t+h])",
+        "split": {
+            "train": f"2012–{TRAIN_END}",
+            "calibracion": str(CAL_YEAR),
+            "prueba": f"{TEST_START}–{int(P_clean['year'].max())}",
+        },
+        "periodo_panel": [str(P_clean["date"].min().date()), str(P_clean["date"].max().date())],
+        "n_features": len(FULL_FEATS),
+        "fuentes": {
+            "incendios": {
+                "archivo": "data/processed/viirs_events.parquet",
+                "sensor": "VIIRS Suomi-NPP",
+                "fecha_ultima": str(pd.to_datetime(pd.read_parquet(event_path)["date"]).max().date()),
+                "sha256": _sha256(event_path),
+            },
+            "meteorologia": {
+                "archivo": "data/processed/power_daily_nodes.parquet",
+                "proveedor": "NASA POWER diario",
+                "sha256": _sha256(weather_path),
+            },
+            "modelo_serializado": {
+                "archivo": "data/processed/daily_model.pkl",
+                "sha256": model_sha,
+                "sklearn_version": sklearn.__version__,
+            },
+            "features_clima": WX_FEATS,
+            "features_fuego": FIRE_FEATS,
+            "features_topografia": TOPO_FEATS,
+            "features_calendario": CAL_FEATS,
+            "inferencia_clima": "Open-Meteo: variables del día actual, lluvia acumulada 7d observada y viento resumido por horizonte.",
+        },
+        "generado_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "n_celdas": int(P_clean["c"].nunique()),
+        "n_test_filas": te_rows,
+        "horizontes": horizontes,
+    }
+
+    # Objetivo operativo observable: VIIRS NOAA-20 (2018–2026)
+    if noaa20_path.exists():
+        P_n20 = build_panel(events_path=noaa20_path, train_end=NOAA20_TRAIN_END)
+        P_n20_clean = P_n20.dropna(subset=WX_FEATS)
+        n20_horizontes, n20_models = _evaluate_split(
+            P_n20, NOAA20_TRAIN_END, NOAA20_CAL_YEAR, NOAA20_TEST_START, verbose=verbose
+        )
+        OUT_MODEL_NOAA20.write_bytes(pickle.dumps(n20_models))
+        n20_model_sha = _sha256(OUT_MODEL_NOAA20)
+        build_or_load_cell_stats(
+            force=True, events_path=noaa20_path, train_end=NOAA20_TRAIN_END, out_path=OUT_CELL_STATS_NOAA20
+        )
+        report["objetivo_observable_noaa20"] = {
+            "objetivo": "P(≥1 evento VIIRS NOAA-20 en celda 0.1° en (t, t+h]) — objetivo operativo NRT activo",
+            "split": {
+                "train": f"2018–{NOAA20_TRAIN_END}",
+                "calibracion": str(NOAA20_CAL_YEAR),
+                "prueba": f"{NOAA20_TEST_START}–{int(P_n20_clean['year'].max())}",
+            },
+            "periodo_panel": [str(P_n20_clean["date"].min().date()), str(P_n20_clean["date"].max().date())],
+            "n_celdas": int(P_n20_clean["c"].nunique()),
+            "n_test_filas": int(len(P_n20_clean[P_n20_clean["year"] >= NOAA20_TEST_START])),
+            "fuentes": {
+                "incendios_noaa20": {
+                    "archivo": "data/processed/viirs_noaa20_events.parquet",
+                    "sensor": "VIIRS NOAA-20 (JPSS-1, activo NRT)",
+                    "sha256": _sha256(noaa20_path),
+                },
+                "modelo_serializado_noaa20": {
+                    "archivo": "data/processed/daily_model_noaa20.pkl",
+                    "sha256": n20_model_sha,
+                    "sklearn_version": sklearn.__version__,
+                },
+            },
+            "horizontes": n20_horizontes,
+        }
+
+    OUT_METRICS.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return report
-
-
-OUT_CELL_STATS = config.DATA_OUT / "daily_cell_stats.parquet"
-OUT_DEM_SLOPE = config.DATA_OUT / "rd_dem_slope.parquet"
 
 
 def compute_topographic_slope(lat: np.ndarray, lon: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -283,119 +567,161 @@ def compute_topographic_slope(lat: np.ndarray, lon: np.ndarray) -> tuple[np.ndar
     return arr[:, 0], arr[:, 1], arr[:, 2]
 
 
-def build_or_load_cell_stats() -> pd.DataFrame:
-    """Devuelve climatología fija por celda×mes; las ventanas recientes vienen del feed NRT."""
-    if OUT_CELL_STATS.exists():
-        cached = pd.read_parquet(OUT_CELL_STATS)
-        if {"clim_cell", "clim_cell_month", "cell_lat", "cell_lon", "month"}.issubset(cached.columns):
-            return cached[["cell_lat", "cell_lon", "c", "clim_cell", "month", "clim_cell_month"]]
+def build_or_load_cell_stats(
+    force: bool = False,
+    events_path: Path | None = None,
+    train_end: int = TRAIN_END,
+    out_path: Path | None = None,
+) -> pd.DataFrame:
+    """Devuelve climatología fija por celda×mes (y vecindad 3×3 + DEM); estrictamente de entrenamiento."""
+    target_path = Path(out_path) if out_path is not None else OUT_CELL_STATS
+    req_cols = {"clim_cell", "clim_cell_month", "clim_nb_month", "elev_dem_m", "slope_deg", "cell_lat", "cell_lon", "month"}
+    if not force and target_path.exists():
+        cached = pd.read_parquet(target_path)
+        if req_cols.issubset(cached.columns):
+            return cached[["cell_lat", "cell_lon", "c", "clim_cell", "month", "clim_cell_month", "clim_nb_month", "elev_dem_m", "slope_deg"]]
 
     cells = _cells().copy()
     cells["c"] = np.arange(len(cells), dtype=np.int32)
+    elev_c, slope_c, _ = _load_cell_dem(cells)
+    cells["elev_dem_m"] = elev_c
+    cells["slope_deg"] = slope_c
 
-    ev = pd.read_parquet(config.DATA_OUT / "viirs_events.parquet")
+    ev_p = Path(events_path) if events_path is not None else (config.DATA_OUT / "viirs_events.parquet")
+    ev = pd.read_parquet(ev_p)
     ev["date"] = pd.to_datetime(ev["date"]).dt.normalize()
     ev["cell_lat"] = _cell_of(ev["lat"].to_numpy())
     ev["cell_lon"] = _cell_of(ev["lon"].to_numpy())
     ev = ev.merge(cells[["c", "cell_lat", "cell_lon"]], on=["cell_lat", "cell_lon"], how="inner")
 
-    # Climatología por celda y mes en 2012–2021
-    ev_tr = ev[ev["date"].dt.year <= TRAIN_END]
-    n_days_tr = (pd.Timestamp(f"{TRAIN_END}-12-31") - pd.Timestamp("2012-01-20")).days + 1
+    ev_tr = ev[ev["date"].dt.year <= train_end]
+    first_d = ev_tr["date"].min()
+    last_d = pd.Timestamp(f"{train_end}-12-31")
+    n_days_tr = max((last_d - first_d).days + 1, 1)
     daily_ev = ev_tr.groupby(["c", "date"]).size().reset_index(name="n")
     daily_ev["month"] = daily_ev["date"].dt.month
     days_per_month = (
-        pd.date_range("2012-01-20", f"{TRAIN_END}-12-31", freq="D")
+        pd.date_range(first_d, last_d, freq="D")
         .to_series().dt.month.value_counts().to_dict()
     )
     cm = daily_ev.groupby(["c", "month"]).size().reset_index(name="fire_days")
     cm["clim_cell_month"] = cm.apply(
-        lambda r: float(r["fire_days"]) / float(days_per_month.get(int(r["month"]), 300)), axis=1
+        lambda r: float(r["fire_days"]) / float(days_per_month.get(int(r["month"]), 150)), axis=1
     )
     cc = daily_ev.groupby("c").size().div(float(n_days_tr)).rename("clim_cell").reset_index()
 
     base = cells.merge(cc, on="c", how="left")
     base["clim_cell"] = base["clim_cell"].fillna(0.0)
-
-    # Expandir por los 12 meses
     months_df = pd.DataFrame({"month": np.arange(1, 13, dtype=np.int32)})
     out = base.merge(months_df, how="cross").merge(
         cm[["c", "month", "clim_cell_month"]], on=["c", "month"], how="left"
     )
     out["clim_cell_month"] = out["clim_cell_month"].fillna(0.0)
-    out.to_parquet(OUT_CELL_STATS, index=False)
+
+    nC = len(cells)
+    cm_mat = np.zeros((13, nC), dtype=np.float32)
+    for r in out.itertuples(index=False):
+        cm_mat[int(r.month), int(r.c)] = float(r.clim_cell_month)
+    nb1_lists = _neighborhood_lists(cells, radius=1)
+    nb_cm_mat = np.zeros_like(cm_mat)
+    for k, nl in enumerate(nb1_lists):
+        if nl:
+            nb_cm_mat[:, k] = cm_mat[:, nl].mean(axis=1)
+    out["clim_nb_month"] = nb_cm_mat[out["month"].to_numpy(), out["c"].to_numpy()]
+
+    out.to_parquet(target_path, index=False)
     return out
 
 
-def predict_live_daily_rd(rd_recent_snpp: pd.DataFrame | None = None,
-                          weather_status: str = "ok",
-                          prefer_cache_only: bool = True) -> pd.DataFrame:
-    """Ejecuta los 3 modelos diarios calibrados (+24h, +48h, +72h) sobre las
-    465 celdas 0.1° de RD acoplando clima Open-Meteo NRT (FWI Van Wagner),
-    focos activos FIRMS y pendiente topográfica real (Rothermel)."""
-    import pickle
+def predict_live_daily_rd(
+    rd_recent_viirs: pd.DataFrame | None = None,
+    weather_status: str = "ok",
+    prefer_cache_only: bool = True,
+    use_noaa20_model: bool = True,
+) -> pd.DataFrame:
+    """Ejecuta los 3 modelos diarios calibrados (+24h, +48h, +72h) con 29 features físicos
+    sobre las 465 celdas 0.1° de RD. Usa el modelo entrenado sobre el objetivo observable
+    NOAA-20 cuando está disponible (emparejando 1:1 el feed NRT NOAA-20)."""
     from . import realtime_weather
 
-    if weather_status != "ok" or rd_recent_snpp is None:
+    if weather_status != "ok" or rd_recent_viirs is None:
         return pd.DataFrame()
-    if not OUT_MODEL.exists():
+
+    use_n20 = bool(use_noaa20_model and OUT_MODEL_NOAA20.exists() and OUT_CELL_STATS_NOAA20.exists())
+    model_path = OUT_MODEL_NOAA20 if use_n20 else OUT_MODEL
+    stats_path = OUT_CELL_STATS_NOAA20 if use_n20 else OUT_CELL_STATS
+    if not model_path.exists():
         train_and_evaluate(verbose=False)
-    models = pickle.loads(OUT_MODEL.read_bytes())
+    models = pickle.loads(model_path.read_bytes())
 
     now_dt = pd.Timestamp.now()
     cur_month = int(now_dt.month)
     doy = int(now_dt.day_of_year)
 
-    stats = build_or_load_cell_stats()
+    stats = build_or_load_cell_stats(out_path=stats_path)
     df = stats[stats["month"] == cur_month].sort_values("c").reset_index(drop=True).copy()
     df["doy_sin"] = float(np.sin(2 * np.pi * doy / 365.25))
     df["doy_cos"] = float(np.cos(2 * np.pi * doy / 365.25))
+    df["model_target_sensor"] = "VIIRS NOAA-20" if use_n20 else "VIIRS S-NPP"
+    df["model_sha256"] = _sha256(model_path)
 
-    # Ventanas recientes por días con detección desde el feed VIIRS S-NPP de 7 días.
-    pts = rd_recent_snpp.copy()
+    # Ventanas recientes por día + inercia térmica FRP (24h, 48h, 7d) desde 1 solo satélite NRT (NOAA-20)
+    pts = rd_recent_viirs.copy()
     if not pts.empty:
         lat_col = "latitude" if "latitude" in pts else "lat"
         lon_col = "longitude" if "longitude" in pts else "lon"
         pts["date"] = pd.to_datetime(pts["date"], errors="coerce").dt.normalize()
         pts["cell_lat"] = _cell_of(pd.to_numeric(pts[lat_col], errors="coerce").to_numpy())
         pts["cell_lon"] = _cell_of(pd.to_numeric(pts[lon_col], errors="coerce").to_numpy())
+        pts["frp_val"] = pd.to_numeric(pts.get("frp", 0.0), errors="coerce").fillna(0.0).clip(lower=0.0)
         asof = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
         pts = pts.dropna(subset=["date", "cell_lat", "cell_lon"])
         pts = pts[(pts["date"] <= asof) & (pts["date"] >= asof - pd.Timedelta(days=6))]
-        fire_days = pts[["cell_lat", "cell_lon", "date"]].drop_duplicates()
-        fire_days["age"] = (asof - fire_days["date"]).dt.days
-        g = fire_days.groupby(["cell_lat", "cell_lon"])
-        counts = g["age"].agg(
-            f_lag1=lambda x: float((x == 0).any()),
-            f_3d=lambda x: float((x <= 2).sum()),
-            f_7d="count",
-            days_since_7d="min",
-        ).reset_index()
-        df = df.merge(counts, on=["cell_lat", "cell_lon"], how="left", suffixes=("", "_nrt"))
-        for col in ["f_lag1", "f_3d", "f_7d"]:
-            df[col] = df[col].fillna(0.0)
-        df["days_since_7d"] = df["days_since_7d"].fillna(7.0).clip(0, 7)
+        if not pts.empty:
+            daily_cell = pts.groupby(["cell_lat", "cell_lon", "date"], as_index=False)["frp_val"].sum()
+            daily_cell["age"] = (asof - daily_cell["date"]).dt.days
+            g = daily_cell.groupby(["cell_lat", "cell_lon"])
+            counts = g.apply(
+                lambda x: pd.Series({
+                    "f_lag1": float((x["age"] == 0).any()),
+                    "f_2d": float((x["age"] <= 1).sum()),
+                    "f_7d": float(len(x)),
+                    "days_since_7d": float(x["age"].min()),
+                    "frp_lag1_raw": float(x.loc[x["age"] == 0, "frp_val"].sum()),
+                    "frp_7d_raw": float(x["frp_val"].sum()),
+                }),
+                include_groups=False,
+            ).reset_index()
+            df = df.merge(counts, on=["cell_lat", "cell_lon"], how="left")
+        else:
+            for col in ("f_lag1", "f_2d", "f_7d", "frp_lag1_raw", "frp_7d_raw"):
+                df[col] = 0.0
+            df["days_since_7d"] = 7.0
     else:
-        df["f_lag1"] = 0.0
-        df["f_3d"] = 0.0
-        df["f_7d"] = 0.0
+        for col in ("f_lag1", "f_2d", "f_7d", "frp_lag1_raw", "frp_7d_raw"):
+            df[col] = 0.0
         df["days_since_7d"] = 7.0
 
-    # Vecinos de 7 días (nb_7d)
-    idx_map = {(round(r.cell_lat, 3), round(r.cell_lon, 3)): int(i) for i, r in enumerate(df.itertuples())}
+    for col in ("f_lag1", "f_2d", "f_7d", "frp_lag1_raw", "frp_7d_raw"):
+        df[col] = df[col].fillna(0.0)
+    df["days_since_7d"] = df["days_since_7d"].fillna(7.0).clip(0, 7)
+    df["frp_lag1"] = np.log1p(df["frp_lag1_raw"].to_numpy(dtype=float))
+    df["frp_7d"] = np.log1p(df["frp_7d_raw"].to_numpy(dtype=float))
+
+    # Vecindad 3×3 (nb_lag1, nb_7d, nb_frp_7d), vecindad 5×5 (nb2_7d) y pulso nacional (nat_1d, nat_7d)
+    cells_ref = df[["cell_lat", "cell_lon"]].reset_index(drop=True)
+    nb1_lists = _neighborhood_lists(cells_ref, radius=1)
+    nb2_lists = _neighborhood_lists(cells_ref, radius=2)
+    f1_arr = df["f_lag1"].to_numpy(dtype=float)
     f7_arr = df["f_7d"].to_numpy(dtype=float)
-    nb7 = np.zeros(len(df), dtype=float)
-    for i, r in enumerate(df.itertuples()):
-        s = 0.0
-        for di in (-0.1, 0.0, 0.1):
-            for dj in (-0.1, 0.0, 0.1):
-                if di == 0.0 and dj == 0.0:
-                    continue
-                j = idx_map.get((round(r.cell_lat + di, 3), round(r.cell_lon + dj, 3)))
-                if j is not None:
-                    s += f7_arr[j]
-        nb7[i] = s
-    df["nb_7d"] = nb7
+    frp7_arr = df["frp_7d_raw"].to_numpy(dtype=float)
+
+    df["nb_lag1"] = [float(f1_arr[nl].sum()) if nl else 0.0 for nl in nb1_lists]
+    df["nb_7d"] = [float(f7_arr[nl].sum()) if nl else 0.0 for nl in nb1_lists]
+    df["nb2_7d"] = [float(f7_arr[nl].sum()) if nl else 0.0 for nl in nb2_lists]
+    df["nb_frp_7d"] = [float(np.log1p(frp7_arr[nl].sum())) if nl else 0.0 for nl in nb1_lists]
+    df["nat_1d"] = float(f1_arr.sum())
+    df["nat_7d"] = float(f7_arr.sum())
 
     # Clima Open-Meteo NRT por celda
     wx_fc = realtime_weather.get_forecast_daily(prefer_cache_only=prefer_cache_only)
@@ -413,18 +739,13 @@ def predict_live_daily_rd(rd_recent_snpp: pd.DataFrame | None = None,
                 "precip_mm", "elev_m"
             ] if c in first_day.columns
         ]
-        df = df.merge(
-            first_day[avail_fc_cols],
-            on=["cell_lat_r", "cell_lon_r"],
-            how="left",
-        )
+        df = df.merge(first_day[avail_fc_cols], on=["cell_lat_r", "cell_lon_r"], how="left")
         df["plat"] = (df["cell_lat"] * 2).round() / 2
         df["plon"] = (df["cell_lon"] * 2).round() / 2
         observed_wx = realtime_weather.get_observed_weather_window(prefer_cache_only=prefer_cache_only)
         if len(observed_wx) < 1:
             return pd.DataFrame()
-        df = df.merge(observed_wx[["plat", "plon", "rain_7d", "dry_streak"]],
-                      on=["plat", "plon"], how="left")
+        df = df.merge(observed_wx[["plat", "plon", "rain_7d", "dry_streak"]], on=["plat", "plon"], how="left")
         if df[["rain_7d", "dry_streak"]].isna().any().any():
             df["rain_7d"] = df["rain_7d"].fillna(df["rain_7d"].median()).fillna(0.0)
             df["dry_streak"] = df["dry_streak"].fillna(df["dry_streak"].median()).fillna(1.0)
@@ -439,7 +760,6 @@ def predict_live_daily_rd(rd_recent_snpp: pd.DataFrame | None = None,
     else:
         return pd.DataFrame()
 
-    # Vector de viento medio de cada ventana usando horas pronosticadas reales.
     hourly = realtime_weather.get_hourly_forecast(prefer_cache_only=False)
     if hourly.empty or "wind_dir_from" not in hourly:
         return pd.DataFrame()
@@ -480,13 +800,11 @@ def predict_live_daily_rd(rd_recent_snpp: pd.DataFrame | None = None,
             df[f"wind_bearing_to_{horizon}"] = df[f"wind_bearing_to_{horizon}"].bfill().ffill().fillna(90.0)
             df[f"wind_hours_used_{horizon}"] = df[f"wind_hours_used_{horizon}"].fillna(horizon)
             df["weather_degraded"] = True
-    if df[WX_FEATS].isna().any().any():
-        for col in WX_FEATS:
-            if df[col].isna().any():
-                df[col] = df[col].bfill().ffill().fillna(0.0)
-        df["weather_degraded"] = True
+    for col in ALL_WX_COLS:
+        if col in df.columns and df[col].isna().any():
+            df[col] = df[col].bfill().ffill().fillna(0.0)
+            df["weather_degraded"] = True
 
-    # Topografía física real (pendiente y rumbo ascendente)
     slope_deg, upslope_bearing, phi_slope = compute_topographic_slope(
         df["cell_lat"].to_numpy(), df["cell_lon"].to_numpy()
     )
@@ -494,7 +812,6 @@ def predict_live_daily_rd(rd_recent_snpp: pd.DataFrame | None = None,
     df["upslope_bearing"] = np.round(upslope_bearing, 1)
     df["phi_slope"] = np.round(phi_slope, 3)
 
-    # Predicciones calibradas por horizonte (+24h, +48h, +72h)
     raw_probs = {}
     for h in HORIZONS:
         m, iso, feats = models[h]
@@ -502,20 +819,13 @@ def predict_live_daily_rd(rd_recent_snpp: pd.DataFrame | None = None,
         p_cal = iso.predict(m.predict_proba(X)[:, 1])
         raw_probs[h] = np.clip(p_cal, 0.0005, 0.99)
 
-    # Conservar las salidas calibradas; no imponer monotonicidad artificial.
-    p1 = raw_probs[1]
-    p2 = raw_probs[2]
-    p3 = raw_probs[3]
-
-    df["p_daily_24"] = np.round(p1 * 100.0, 2)
-    df["p_daily_48"] = np.round(p2 * 100.0, 2)
-    df["p_daily_72"] = np.round(p3 * 100.0, 2)
-
+    df["p_daily_24"] = np.round(raw_probs[1] * 100.0, 2)
+    df["p_daily_48"] = np.round(raw_probs[2] * 100.0, 2)
+    df["p_daily_72"] = np.round(raw_probs[3] * 100.0, 2)
     df["prob_24"] = df["p_daily_24"]
     df["prob_48"] = df["p_daily_48"]
     df["prob_72"] = df["p_daily_72"]
 
-    # Escenarios de avance: viento medio horario pronosticado + pendiente DEM.
     upslope_rad = np.radians(upslope_bearing)
     w_slope = np.clip(phi_slope * 1.5, 0.0, 2.5)
     for horizon in (24, 48, 72):
@@ -525,14 +835,11 @@ def predict_live_daily_rd(rd_recent_snpp: pd.DataFrame | None = None,
         vy = w_wind * np.cos(downwind_rad) + w_slope * np.cos(upslope_rad)
         df[f"bearing_{horizon}"] = np.round((np.degrees(np.arctan2(vx, vy)) + 360.0) % 360.0, 0)
 
-    # Radio de escenario (no perímetro calibrado) impulsado por ISI y pendiente.
     isi_arr = df["isi"].fillna(3.0).to_numpy()
     spread_24 = np.clip(1.6 + 0.22 * isi_arr * (1.0 + 0.35 * phi_slope) + 0.04 * df["fwi"].fillna(10.0).to_numpy(), 1.8, 12.0)
     df["spread_24"] = np.round(spread_24, 2)
     df["bearing"] = df["bearing_24"]
-
     return df
-
 
 
 if __name__ == "__main__":
