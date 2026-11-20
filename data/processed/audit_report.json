@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-20T03:43:24+00:00",
+  "generated_utc": "2026-11-20T04:43:53+00:00",
   "checks": {
     "daily_source_hash_incendios": {
       "ok": true,
@@ -100,8 +100,11 @@
       "h3_res7_cells": 10058,
       "h3_res7_mean_area_km2": 3.84,
       "h3_res7_monthly_mae": 15.37,
+      "counts_double_nested_oos_pi80_coverage_pct": 78.7,
+      "frp_double_nested_oos_pi80_coverage_pct": 78.7,
+      "h3_res7_double_nested_oos_pi80_coverage_pct": 78.7,
       "strict_noncircular_oos_pi80_coverage_pct": 78.7,
-      "dr_daily_24h_batch_latency_ms": 6.72
+      "dr_daily_24h_batch_latency_ms": 6.89
     },
     "dem_source_hashes_and_coverage": {
       "ok": true,
@@ -204,10 +207,10 @@
   "data_availability": {
     "source": "NASA FIRMS VIIRS 375m 7d (S-NPP + NOAA-20 + NOAA-21)",
     "snpp_7d_status": "vacio",
-    "noaa20_7d_rows": 343708,
-    "noaa21_7d_rows": 334091,
+    "noaa20_7d_rows": 343712,
+    "noaa21_7d_rows": 336298,
     "status": "ok",
-    "rows": 677799,
+    "rows": 680010,
     "daily_rd_probability_available": true,
     "message": "Constelación VIIRS 375m activa (NOAA-20/21 cubren el feed S-NPP vacío)"
   },

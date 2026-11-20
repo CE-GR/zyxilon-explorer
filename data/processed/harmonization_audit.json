@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-20T03:43:47+00:00",
+  "generated_utc": "2026-11-20T04:44:56+00:00",
   "grid_degrees": 0.1,
   "active_cells_total": 465,
   "jump_metrics_counts_2007_2011_vs_2012_2016": {
@@ -27,9 +27,14 @@
       0.5752,
       1.464
     ],
+    "counts_double_nested_oos_coverage_pct": 78.7,
+    "counts_double_nested_hits": "137/174",
+    "frp_double_nested_oos_coverage_pct": 78.7,
+    "frp_double_nested_hits": "137/174",
+    "frp_method": "loglineal_frp_temporada",
     "strict_noncircular_oos_coverage_pct": 78.7,
     "calibrated_loyo_coverage_pct": 79.3,
-    "note": "strict_noncircular_oos_coverage_pct fits q10/q90 strictly on years != y for every held-out year y (zero circularity; nominal target 80.0%)."
+    "note": "True double-nested LOYO: for every held-out outer year y, an inner LOYO runs strictly on outer_train (years != y) so year y never participates in inner model fitting, inner residuals, or q10/q90 quantile calibration. Evaluated independently for both hotspot counts and FRP (MW)."
   },
   "hierarchical_shrinkage_01deg_benchmark": {
     "method": "hierarchical_eb_shrinkage_loyo",
@@ -64,15 +69,16 @@
     "national_monthly_mae": 15.37,
     "national_monthly_r": 0.9622,
     "national_net_bias_pct": 1.488,
+    "double_nested_oos_pi80_coverage_pct": 78.7,
     "strict_noncircular_oos_pi80_coverage_pct": 78.7
   },
   "dr_daily_inference_latency": {
     "model_class": "HistGradientBoostingClassifier + IsotonicRegression",
     "n_features": 22,
     "batch_cells": 465,
-    "single_horizon_24h_median_ms": 8.63,
-    "single_horizon_24h_p95_ms": 8.99,
-    "all_3_horizons_median_ms": 25.9,
-    "all_3_horizons_p95_ms": 27.14
+    "single_horizon_24h_median_ms": 8.61,
+    "single_horizon_24h_p95_ms": 8.98,
+    "all_3_horizons_median_ms": 25.74,
+    "all_3_horizons_p95_ms": 26.79
   }
 }

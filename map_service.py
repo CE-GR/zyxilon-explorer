@@ -152,10 +152,23 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
 
     cov_pct = 79.3
     strict_oos_cov_pct = 78.7
+    frp_strict_oos_cov_pct = 78.7
     lp_path = config.DATA_OUT / "loyo_preds.parquet"
     band_cnt_m = model.get("banda", {}).get("mensual", [0.740323, 1.318718])
     band_cnt_a = model.get("banda", {}).get("anual", [0.878715, 1.119800])
     band_frp_m = model.get("frp", {}).get("banda", {}).get("mensual", [0.575220, 1.464016])
+    harm_audit_path = config.DATA_OUT / "harmonization_audit.json"
+    harm_audit: Dict[str, Any] = {}
+    if harm_audit_path.exists():
+        try:
+            harm_audit = json.loads(harm_audit_path.read_text(encoding="utf-8"))
+        except Exception:
+            harm_audit = {}
+    pi80_val = harm_audit.get("pi80_validation", {})
+    if pi80_val.get("counts_double_nested_oos_coverage_pct") is not None:
+        strict_oos_cov_pct = float(pi80_val["counts_double_nested_oos_coverage_pct"])
+    if pi80_val.get("frp_double_nested_oos_coverage_pct") is not None:
+        frp_strict_oos_cov_pct = float(pi80_val["frp_double_nested_oos_coverage_pct"])
     if lp_path.exists():
         try:
             lp_df = pd.read_parquet(lp_path)
@@ -164,7 +177,6 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
                 lp_lo = np.clip((lp_sub["pred"] + 1.0) * float(band_cnt_m[0]) - 1.0, 0.0, None)
                 lp_hi = (lp_sub["pred"] + 1.0) * float(band_cnt_m[1]) - 1.0
                 cov_pct = round(float(((lp_sub["modis"] >= lp_lo) & (lp_sub["modis"] <= lp_hi)).mean()) * 100.0, 1)
-                strict_oos_cov_pct = hm.strict_oos_pi80_coverage(lp_sub, "modis", "pred")
         except Exception:
             pass
 
@@ -172,17 +184,11 @@ def build_climatology_data(force: bool = False) -> Dict[str, Any]:
         "count_monthly_mult": [round(float(band_cnt_m[0]), 3), round(float(band_cnt_m[1]), 3)],
         "count_annual_mult": [round(float(band_cnt_a[0]), 3), round(float(band_cnt_a[1]), 3)],
         "frp_monthly_mult": [round(float(band_frp_m[0]), 3), round(float(band_frp_m[1]), 3)],
+        "counts_double_nested_oos_coverage_pct": strict_oos_cov_pct,
+        "frp_double_nested_oos_coverage_pct": frp_strict_oos_cov_pct,
         "strict_noncircular_oos_coverage_pct": strict_oos_cov_pct,
         "empirical_loyo_coverage_pct": cov_pct,
     }
-
-    harm_audit_path = config.DATA_OUT / "harmonization_audit.json"
-    harm_audit: Dict[str, Any] = {}
-    if harm_audit_path.exists():
-        try:
-            harm_audit = json.loads(harm_audit_path.read_text(encoding="utf-8"))
-        except Exception:
-            harm_audit = {}
 
     hierarchical_loyo = harm_audit.get("hierarchical_shrinkage_01deg_benchmark") or hm.hierarchical_shrinkage_loyo(cells)
     h3_res7_benchmark = harm_audit.get("h3_res7_multiscale_benchmark") or {}
@@ -380,12 +386,34 @@ def fetch_recent_viirs_rd_fast() -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def _lookup_geos_wind(wx_map: Dict[str, dict], lat: float, lon: float, max_deg: float = 1.5) -> Dict[str, Any] | None:
+    """Busca muestra de viento NASA GEOS-FP exacta o vecina dentro de la celda de 1°."""
+    if not wx_map:
+        return None
+    exact = wx_map.get(f"{lat:.2f},{lon:.2f}")
+    if exact:
+        return exact
+    best_item = None
+    best_dist = max_deg * max_deg
+    for k, val in wx_map.items():
+        try:
+            klat, klon = (float(x) for x in k.split(",", 1))
+            d2 = (klat - lat) ** 2 + (klon - lon) ** 2
+            if d2 <= best_dist:
+                best_dist = d2
+                best_item = val
+        except Exception:
+            continue
+    return best_item
+
+
 def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max_gfa_cells: int = 30) -> list[dict]:
     """Genera predicciones globales a +24h, +48h y +72h combinando clústeres FIRMS activos
-    y celdas de recurrencia climatológica del NASA Global Fire Atlas (GFA)."""
+    (con vectores de viento reales de NASA GEOS-FP) y celdas de recurrencia climatológica
+    del NASA Global Fire Atlas (1°, sin conos direccionales)."""
     glob_records = []
     try:
-        from pipeline import global_fire_model, predictive_model as pm
+        from pipeline import global_fire_model, nasa_geos_fp, predictive_model as pm
 
         # 1. Clústeres activos FIRMS fuera de República Dominicana
         if all_pts is not None and not all_pts.empty and "lat" in all_pts.columns and "lon" in all_pts.columns:
@@ -403,15 +431,44 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                 ).reset_index()
 
                 top_clusters = agg_glob.sort_values("sum_frp", ascending=False).head(max_clusters)
+                sample_coords = [(float(r["lat"]), float(r["lon"])) for _, r in top_clusters.head(20).iterrows()]
+                wx_by_h: Dict[int, Dict[str, dict]] = {24: {}, 48: {}, 72: {}}
+                for h_hr in (24, 48, 72):
+                    c_path = config.DATA_CACHE / "nasa_geos_fp" / f"global_clusters_{h_hr}h.json"
+                    if c_path.exists():
+                        try:
+                            wx_by_h[h_hr] = json.loads(c_path.read_text(encoding="utf-8")).get("clusters", {})
+                        except Exception:
+                            wx_by_h[h_hr] = {}
+                    try:
+                        fresh_wx = nasa_geos_fp.fetch_wind(sample_coords, h_hr, c_path, ttl_seconds=3600)
+                        if fresh_wx:
+                            wx_by_h[h_hr].update(fresh_wx)
+                    except Exception:
+                        pass
+
                 for _, r in top_clusters.iterrows():
                     g_lat = float(r["lat"])
                     g_lon = float(r["lon"])
                     terr_name, cont_name = pm.identify_global_territory(g_lat, g_lon)
                     terr_label = terr_name if cont_name.lower() in terr_name.lower() else f"{terr_name} · {cont_name}"
+
+                    w24 = _lookup_geos_wind(wx_by_h[24], g_lat, g_lon)
+                    w48 = _lookup_geos_wind(wx_by_h[48], g_lat, g_lon) or w24
+                    w72 = _lookup_geos_wind(wx_by_h[72], g_lat, g_lon) or w48 or w24
+
+                    b24 = round(float(w24["bearing_to"]), 1) if (w24 and w24.get("bearing_to") is not None) else None
+                    b48 = round(float(w48["bearing_to"]), 1) if (w48 and w48.get("bearing_to") is not None) else b24
+                    b72 = round(float(w72["bearing_to"]), 1) if (w72 and w72.get("bearing_to") is not None) else b48
+
+                    s24 = round(float(w24["speed_kmh"]), 1) if (w24 and w24.get("speed_kmh") is not None) else None
+                    s48 = round(float(w48["speed_kmh"]), 1) if (w48 and w48.get("speed_kmh") is not None) else s24
+                    s72 = round(float(w72["speed_kmh"]), 1) if (w72 and w72.get("speed_kmh") is not None) else s48
+
                     try:
-                        p24_dict = global_fire_model.predict(g_lat, g_lon, 24)
-                        p48_dict = global_fire_model.predict(g_lat, g_lon, 48)
-                        p72_dict = global_fire_model.predict(g_lat, g_lon, 72)
+                        p24_dict = global_fire_model.predict(g_lat, g_lon, 24, forecast_wind_bearing=b24)
+                        p48_dict = global_fire_model.predict(g_lat, g_lon, 48, forecast_wind_bearing=b48)
+                        p72_dict = global_fire_model.predict(g_lat, g_lon, 72, forecast_wind_bearing=b72)
                     except Exception:
                         p24_dict, p48_dict, p72_dict = {}, {}, {}
 
@@ -423,7 +480,8 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                     spd_48 = round(spd_24 * 2.0, 1)
                     spd_72 = round(spd_24 * 3.0, 1)
 
-                    est_bearing = 270.0 if abs(g_lat) < 30 else 90.0
+                    has_geos_wind = b24 is not None and s24 is not None
+                    valid_at = w24.get("valid_time") if w24 else None
 
                     glob_records.append({
                         "lat": round(g_lat, 4),
@@ -437,16 +495,16 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                         "spread_24": spd_24,
                         "spread_48": spd_48,
                         "spread_72": spd_72,
-                        "bearing": est_bearing,
-                        "bearing_24": est_bearing,
-                        "bearing_48": est_bearing,
-                        "bearing_72": est_bearing,
-                        "wind_bearing_to_24": est_bearing,
-                        "wind_bearing_to_48": est_bearing,
-                        "wind_bearing_to_72": est_bearing,
-                        "wind_forecast_kmh_24": 18.0,
-                        "wind_forecast_kmh_48": 18.0,
-                        "wind_forecast_kmh_72": 18.0,
+                        "bearing": b24,
+                        "bearing_24": b24,
+                        "bearing_48": b48,
+                        "bearing_72": b72,
+                        "wind_bearing_to_24": b24,
+                        "wind_bearing_to_48": b48,
+                        "wind_bearing_to_72": b72,
+                        "wind_forecast_kmh_24": s24,
+                        "wind_forecast_kmh_48": s48,
+                        "wind_forecast_kmh_72": s72,
                         "fwi": None,
                         "slope_deg": None,
                         "temp_c": None,
@@ -455,16 +513,26 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                         "frp": round(float(r["sum_frp"]), 1),
                         "terr": terr_label,
                         "is_rd": False,
-                        "kind": "Active FIRMS Hotspot · Global NASA GFA Model",
+                        "kind": "Active FIRMS Hotspot · Global NASA GFA + GEOS-FP",
                         "probability_validated": True,
-                        "show_spread_cone": True,
-                        "weather_source": "NASA Global Fire Atlas + FIRMS NRT",
-                        "scenario_note": f"Cluster of {int(r['n_pts'])} FIRMS detections. Propagation based on historical monthly GFA velocity.",
+                        "show_spread_cone": bool(has_geos_wind),
+                        "weather_source": (
+                            f"{nasa_geos_fp.SOURCE} + NASA GFA + FIRMS NRT"
+                            if has_geos_wind
+                            else "NASA Global Fire Atlas + FIRMS NRT (no GEOS-FP vector cached)"
+                        ),
+                        "weather_valid_at": valid_at,
+                        "scenario_note": (
+                            f"Cluster of {int(r['n_pts'])} FIRMS detections. Wind direction from NASA GEOS-FP 10m vector; speed from GFA monthly velocity."
+                            if has_geos_wind
+                            else f"Cluster of {int(r['n_pts'])} FIRMS detections. GFA historical speed; directional cone disabled without GEOS-FP wind sample."
+                        ),
                         "min_horizon": 24,
                         "rank": len(glob_records)
                     })
 
         # 2. Celdas de riesgo climatológico del NASA Global Fire Atlas (1° de resolución)
+        # No se dibujan conos direccionales en celdas climatológicas de 1° (precisión direccional histórica 27.6% vs 27.5% baseline).
         gfa_cells = global_fire_model.risk_grid(72, limit=max_gfa_cells)
         for gc in gfa_cells:
             g_lat = float(gc["lat"])
@@ -474,7 +542,6 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
             prob_72 = round(float(gc.get("probability", 0.5)), 4)
             prob_24 = round(1.0 - (1.0 - prob_72) ** (1 / 3), 4)
             prob_48 = round(1.0 - (1.0 - prob_72) ** (2 / 3), 4)
-            est_bearing = 270.0 if abs(g_lat) < 30 else 90.0
             glob_records.append({
                 "lat": round(g_lat, 4),
                 "lon": round(g_lon, 4),
@@ -487,16 +554,16 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                 "spread_24": 1.5,
                 "spread_48": 3.0,
                 "spread_72": 4.5,
-                "bearing": est_bearing,
-                "bearing_24": est_bearing,
-                "bearing_48": est_bearing,
-                "bearing_72": est_bearing,
-                "wind_bearing_to_24": est_bearing,
-                "wind_bearing_to_48": est_bearing,
-                "wind_bearing_to_72": est_bearing,
-                "wind_forecast_kmh_24": 15.0,
-                "wind_forecast_kmh_48": 15.0,
-                "wind_forecast_kmh_72": 15.0,
+                "bearing": None,
+                "bearing_24": None,
+                "bearing_48": None,
+                "bearing_72": None,
+                "wind_bearing_to_24": None,
+                "wind_bearing_to_48": None,
+                "wind_bearing_to_72": None,
+                "wind_forecast_kmh_24": None,
+                "wind_forecast_kmh_48": None,
+                "wind_forecast_kmh_72": None,
                 "fwi": None,
                 "slope_deg": None,
                 "temp_c": None,
@@ -507,9 +574,9 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
                 "is_rd": False,
                 "kind": "NASA Global Fire Atlas · 1° Climatological Cell",
                 "probability_validated": True,
-                "show_spread_cone": True,
+                "show_spread_cone": False,
                 "weather_source": "NASA Global Fire Atlas Climatology (2002–2025)",
-                "scenario_note": "1° cell with verified seasonal recurrence and favorable Brier score vs climatological baseline.",
+                "scenario_note": "1° climatological recurrence cell (validated ignition probability & mean speed; directional cone disabled — GFA direction accuracy 27.6% vs 27.5% baseline).",
                 "min_horizon": 24,
                 "rank": len(glob_records)
             })
@@ -545,17 +612,29 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
                 _df["day"] = now_ts.day
                 _df["hours_ago"] = 0.0
 
+    # Conteos y energía sobre los feeds NRT completos (sin truncar por límite de visualización)
+    total_m = int(len(m_live))
+    total_v20 = int(len(v20_live))
+    total_v21 = int(len(v21_live))
+    total_vsnpp = int(len(vsnpp_live))
+    total_v = total_v20 + total_v21 + total_vsnpp
+    total_focos = total_m + total_v
+
+    all_live_frames = [f for f in [m_live, v20_live, v21_live, vsnpp_live] if not f.empty]
+    all_live_pts = pd.concat(all_live_frames, ignore_index=True) if all_live_frames else pd.DataFrame()
+    max_frp_val = float(all_live_pts["frp"].max()) if not all_live_pts.empty else 0.0
+    sum_gw = float(all_live_pts["frp"].sum()) / 1000.0 if not all_live_pts.empty else 0.0
+
+    # Subconjunto priorizado para renderizado fluido de marcadores en Leaflet (100% de RD + top FRP global)
     m_draw = _prioritize_pts(m_live, 1500)
     v20_draw = _prioritize_pts(v20_live, 1500)
     v21_draw = _prioritize_pts(v21_live, 1500)
     vsnpp_draw = _prioritize_pts(vsnpp_live, 500)
-
-    total_m = len(m_draw)
-    total_v20 = len(v20_draw)
-    total_v21 = len(v21_draw)
-    total_vsnpp = len(vsnpp_draw)
-    total_v = total_v20 + total_v21 + total_vsnpp
-    total_focos = total_m + total_v
+    drawn_m = int(len(m_draw))
+    drawn_v20 = int(len(v20_draw))
+    drawn_v21 = int(len(v21_draw))
+    drawn_vsnpp = int(len(vsnpp_draw))
+    drawn_focos = drawn_m + drawn_v20 + drawn_v21 + drawn_vsnpp
 
     if total_vsnpp > 0:
         vsnpp_status = {
@@ -575,11 +654,6 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
             "label": "N/A",
             "note": f"NASA FIRMS Suomi-NPP NRT feed unavailable ({vsnpp_report.get('estado', 'unknown')}); live 375m NRT runs on NOAA-20 & NOAA-21."
         }
-
-    all_frames = [f for f in [m_draw, v20_draw, v21_draw, vsnpp_draw] if not f.empty]
-    all_pts = pd.concat(all_frames, ignore_index=True) if all_frames else pd.DataFrame()
-    max_frp_val = float(all_pts["frp"].max()) if not all_pts.empty else 0.0
-    sum_gw = float(all_pts["frp"].sum()) / 1000.0 if not all_pts.empty else 0.0
 
     m_records = _clean_pts_fast(m_draw)
     v20_records = _clean_pts_fast(v20_draw)
@@ -658,8 +732,8 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
     except Exception as e:
         print(f"[Zyxilon Explorer] Warning generating DR prediction: {e}")
 
-    # 2. Multiscale global inference (FIRMS + NASA Global Fire Atlas)
-    glob_records = _build_global_predictions(all_pts, max_clusters=50, max_gfa_cells=30)
+    # 2. Multiscale global inference (FIRMS + NASA Global Fire Atlas + GEOS-FP)
+    glob_records = _build_global_predictions(all_live_pts, max_clusters=50, max_gfa_cells=30)
 
     # 3. Combine records: DR first (priority indexed) then Global
     pred_records = rd_records + glob_records
@@ -692,6 +766,11 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
         "total_vsnpp": total_vsnpp,
         "vsnpp_status": vsnpp_status,
         "total_focos": total_focos,
+        "drawn_focos": drawn_focos,
+        "drawn_m": drawn_m,
+        "drawn_v20": drawn_v20,
+        "drawn_v21": drawn_v21,
+        "drawn_vsnpp": drawn_vsnpp,
         "max_frp": max_frp_val,
         "sum_gw": sum_gw,
         "modis_records": m_records,
@@ -709,14 +788,17 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
 
 
 def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl: int = 3) -> str:
-    """Genera el HTML completo del mapa satelital Leaflet a pantalla completa."""
+    """Genera el HTML completo del mapa satelital Leaflet a pantalla completa.
+    Cachea la plantilla con __CENTER_LAT__, __CENTER_LON__ y __ZOOM_LVL__ sin reemplazar
+    para que cada petición (/mapa, ?corridor=valle_nuevo, ?lat=...&lon=...) reciba su vista exacta."""
     now = time.time()
     if _MAP_CACHE["html"] and (now - _MAP_CACHE["timestamp"] < _MAP_CACHE["ttl"]):
-        cached_html = _MAP_CACHE["html"]
-        # Inyectar centro y zoom dinámicos si se solicitaron
-        if center_lat != 20.0 or center_lon != 0.0 or zoom_lvl != 3:
-            return cached_html.replace("__CENTER_LAT__", str(center_lat)).replace("__CENTER_LON__", str(center_lon)).replace("__ZOOM_LVL__", str(zoom_lvl))
-        return cached_html
+        return (
+            _MAP_CACHE["html"]
+            .replace("__CENTER_LAT__", str(center_lat))
+            .replace("__CENTER_LON__", str(center_lon))
+            .replace("__ZOOM_LVL__", str(zoom_lvl))
+        )
 
     data = build_map_data()
     _MAP_CACHE["data_json"] = data
@@ -738,14 +820,11 @@ def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl:
     template_path = config.ROOT / "static" / "firms_fullscreen.html"
     template_content = template_path.read_text(encoding="utf-8")
 
-    html = (
+    html_template = (
         template_content
         .replace("__LEAFLET_CSS__", leaflet_css)
         .replace("__LEAFLET_JS__", leaflet_js)
         .replace("__CIRCLE_JS__", circle_js)
-        .replace("__CENTER_LAT__", str(center_lat))
-        .replace("__CENTER_LON__", str(center_lon))
-        .replace("__ZOOM_LVL__", str(zoom_lvl))
         .replace("__TOTAL_FOCOS__", str(data["total_focos"]))
         .replace("__TOTAL_MODIS__", str(data["total_m"]))
         .replace("__TOTAL_VIIRS__", str(data["total_v"]))
@@ -766,6 +845,11 @@ def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl:
         .replace("__CARTO_KEY__", getattr(config, "CARTO_API_KEY", ""))
     )
 
-    _MAP_CACHE["html"] = html
+    _MAP_CACHE["html"] = html_template
     _MAP_CACHE["timestamp"] = now
-    return html
+    return (
+        html_template
+        .replace("__CENTER_LAT__", str(center_lat))
+        .replace("__CENTER_LON__", str(center_lon))
+        .replace("__ZOOM_LVL__", str(zoom_lvl))
+    )

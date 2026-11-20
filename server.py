@@ -106,12 +106,19 @@ async def get_api_focos():
     return JSONResponse(content={
         "status": "ok",
         "total_focos": data["total_focos"],
+        "drawn_focos": data.get("drawn_focos", data["total_focos"]),
         "sensores": {
             "modis": data["total_m"],
             "viirs_total": data["total_v"],
             "viirs_noaa20": data["total_v20"],
             "viirs_noaa21": data["total_v21"],
             "viirs_snpp": data["total_vsnpp"]
+        },
+        "sensores_renderizados": {
+            "modis": data.get("drawn_m", len(data["modis_records"])),
+            "viirs_noaa20": data.get("drawn_v20", len(data["v20_records"])),
+            "viirs_noaa21": data.get("drawn_v21", len(data["v21_records"])),
+            "viirs_snpp": data.get("drawn_vsnpp", len(data["vsnpp_records"])),
         },
         "viirs_snpp_status": data.get("vsnpp_status", {}),
         "max_frp_mw": data["max_frp"],

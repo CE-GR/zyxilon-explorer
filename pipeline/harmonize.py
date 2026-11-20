@@ -89,16 +89,20 @@ def _fit_phys_params(train: pd.DataFrame, method: str, spec: dict) -> dict:
         "c_ref": c_ref, "med_ref": med_ref,
     }
     p0 = _phys_raw(train, p)
-    months = train["month"].dt.month
+    months = train["month"].dt.month.to_numpy(int)
+    modis_arr = train["modis"].to_numpy(float)
     seas_mult = {}
+    mult_arr = np.ones(13, dtype=float)
     for m in range(1, 13):
-        idx = (months == m).to_numpy()
+        idx = months == m
         if idx.sum() >= 3 and p0[idx].sum() > 0:
-            rm = float(train.loc[idx, "modis"].sum() / p0[idx].sum())
-            seas_mult[str(m)] = float(np.clip((1.0 - spec["w_seas"]) + spec["w_seas"] * rm, 0.72, 1.35))
+            rm = float(modis_arr[idx].sum() / p0[idx].sum())
+            val = float(np.clip((1.0 - spec["w_seas"]) + spec["w_seas"] * rm, 0.72, 1.35))
         else:
-            seas_mult[str(m)] = 1.0
-    mult = months.astype(str).map(seas_mult).astype(float).to_numpy()
+            val = 1.0
+        seas_mult[str(m)] = val
+        mult_arr[m] = val
+    mult = mult_arr[months]
     cal = float(y_sum / max(float((p0 * mult).sum()), 1.0))
     return {**p, "seas_mult": seas_mult, "cal": cal}
 
@@ -190,7 +194,8 @@ def predict(model: dict, df: pd.DataFrame) -> np.ndarray:
         p = model["phys_params"]
         raw = _phys_raw(df, p)
         sm = p.get("seas_mult", {})
-        mult = df["month"].dt.month.map(lambda mm: sm.get(str(mm), sm.get(mm, 1.0))).to_numpy(float)
+        mult_arr = np.array([1.0] + [float(sm.get(str(mm), sm.get(mm, 1.0))) for mm in range(1, 13)], dtype=float)
+        mult = mult_arr[df["month"].dt.month.to_numpy(int)]
         return np.clip(raw * mult * float(p.get("cal", 1.0)), 0.0, None)
     if m in ("razon_px", "razon_ev"):
         return model["k"]["todas"] * x
@@ -566,14 +571,71 @@ def hierarchical_shrinkage_loyo(cells: pd.DataFrame, k_prov: float = 500.0, k_ce
     }
 
 
+def double_nested_oos_pi80_coverage(
+    ov_df: pd.DataFrame,
+    method: str = "ensamble_hibrido_loyo",
+    is_frp: bool = False,
+    q: tuple[float, float] = (0.10, 0.90),
+) -> dict:
+    """True double-nested Leave-One-Year-Out 80% PI coverage (zero outer-year leakage).
+
+    For each held-out outer year y:
+      1. Restrict exclusively to outer_train = ov_df[year != y].
+      2. Run a complete inner LOYO inside outer_train (so outer year y never participates
+         in inner model training, inner out-of-sample predictions, or quantile estimation).
+      3. Calibrate (q10, q90) ratio multipliers strictly from the inner LOYO residuals.
+      4. Fit the outer model on outer_train, predict outer_test (year == y), and evaluate
+         whether held-out observations fall within [lo, hi].
+    Supports both hotspot counts (is_frp=False) and Fire Radiative Power in MW (is_frp=True).
+    """
+    target_col = _FRP_Y if is_frp else "modis"
+    if ov_df is None or ov_df.empty:
+        return {"coverage_pct": 0.0, "hits": 0, "total_months": 0, "method": method, "target": target_col}
+
+    years = sorted(ov_df["month"].dt.year.unique())
+    hits: list[bool] = []
+    for y_out in years:
+        outer_train = ov_df[ov_df["month"].dt.year != y_out]
+        outer_test = ov_df[ov_df["month"].dt.year == y_out]
+        if outer_train.empty or outer_test.empty:
+            continue
+        inner_preds = _loyo_frp(method, outer_train) if is_frp else loyo(method, outer_train)
+        if inner_preds.empty:
+            continue
+        inner_ratios = (inner_preds[target_col].to_numpy(float) + 1.0) / (inner_preds["pred"].to_numpy(float) + 1.0)
+        q_lo, q_hi = np.quantile(inner_ratios, [q[0], q[1]])
+        outer_model = fit_frp(method, outer_train) if is_frp else fit(method, outer_train)
+        outer_pred = predict_frp(outer_model, outer_test) if is_frp else predict(outer_model, outer_test)
+        lo = np.clip((outer_pred + 1.0) * float(q_lo) - 1.0, 0.0, None)
+        hi = (outer_pred + 1.0) * float(q_hi) - 1.0
+        obs = outer_test[target_col].to_numpy(float)
+        hits.extend(((obs >= lo) & (obs <= hi)).tolist())
+
+    cov_pct = round(float(np.mean(hits)) * 100.0, 1) if hits else 0.0
+    return {
+        "coverage_pct": cov_pct,
+        "hits": int(sum(hits)),
+        "total_months": int(len(hits)),
+        "method": method,
+        "target": target_col,
+    }
+
+
 def strict_oos_pi80_coverage(
     loyo_df: pd.DataFrame,
     target_col: str = "modis",
     pred_col: str = "pred",
     q: tuple[float, float] = (0.10, 0.90),
+    ov_df: pd.DataFrame | None = None,
+    method: str | None = None,
+    is_frp: bool = False,
 ) -> float:
-    """Strictly non-circular nested out-of-sample 80% PI coverage: for each held-out
-    year y, fit quantile multipliers ONLY on years != y, then test coverage on year y."""
+    """Out-of-sample 80% PI coverage. When ov_df is provided, runs true double-nested
+    LOYO so held-out year y is completely absent from inner model fitting and quantile
+    calibration."""
+    if ov_df is not None and not ov_df.empty:
+        m = method or ("loglineal_frp_temporada" if is_frp else "ensamble_hibrido_loyo")
+        return double_nested_oos_pi80_coverage(ov_df, method=m, is_frp=is_frp, q=q)["coverage_pct"]
     if loyo_df is None or loyo_df.empty:
         return 0.0
     hits = []
@@ -598,7 +660,7 @@ def h3_res7_hierarchical_loyo(
 ) -> dict:
     """True multi-scale geodesic Uber H3 Resolution 7 harmonization benchmark
     (H3 Res 7 [~3.84 km²] -> H3 Res 5 -> 32 ADM1 Provinces -> National) evaluated
-    strictly out-of-sample via LOYO (2012–2026) with non-circular 80% PI verification."""
+    strictly out-of-sample via double-nested LOYO (2012–2026) with zero outer-year leakage."""
     import h3
     from pipeline import geo
 
@@ -632,34 +694,94 @@ def h3_res7_hierarchical_loyo(
     last_v = h3_df.loc[h3_df["viirs_px"] > 0, "month"].max()
     ov = h3_df[(h3_df["month"] >= pd.Timestamp("2012-02-01")) & (h3_df["month"] <= last_v)].copy()
 
+    # Fast integer encoding for exact double-nested LOYO shrinkage without repeated string groupby
+    prov_cats, prov_idx = np.unique(ov["province"].to_numpy(str), return_inverse=True)
+    h5_cats, h5_idx = np.unique(ov["h3_5"].to_numpy(str), return_inverse=True)
+    h7_cats, h7_idx = np.unique(ov["h3_7"].to_numpy(str), return_inverse=True)
+    n_p, n_5, n_7 = len(prov_cats), len(h5_cats), len(h7_cats)
+
+    # Map each h5 to its province and each h7 to its h5 and province
+    h7_to_h5 = np.zeros(n_7, dtype=int)
+    h7_to_p = np.zeros(n_7, dtype=int)
+    h7_to_h5[h7_idx] = h5_idx
+    h7_to_p[h7_idx] = prov_idx
+
+    # For h5 cells spanning multiple provinces, match groupby(["h3_5", "province"]) followed by groupby("h3_5")["k5"].mean()
+    h5p_pairs, h5p_inv = np.unique(np.column_stack([h5_idx, prov_idx]), axis=0, return_inverse=True)
+    n_5p = len(h5p_pairs)
+    h5p_h5 = h5p_pairs[:, 0]
+    h5p_p = h5p_pairs[:, 1]
+    h5_pair_counts = np.maximum(np.bincount(h5p_h5, minlength=n_5), 1)
+
+    ov_modis = ov["modis"].to_numpy(float)
+    ov_viirs = ov["viirs_px"].to_numpy(float)
+    ov_year = ov["year"].to_numpy(int)
+    ov_month = ov["month"].to_numpy()
+
+    def _predict_fold_fast(tr_mask: np.ndarray, te_mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        tr_m = ov_modis[tr_mask]
+        tr_v = ov_viirs[tr_mask]
+        k_nat = float(tr_m.sum()) / max(float(tr_v.sum()), 1.0)
+
+        p_m = np.bincount(prov_idx[tr_mask], weights=tr_m, minlength=n_p)
+        p_v = np.bincount(prov_idx[tr_mask], weights=tr_v, minlength=n_p)
+        k_p = np.where(p_v > 0, (p_m + float(k_prov) * k_nat) / (p_v + float(k_prov)), k_nat)
+
+        g5_m = np.bincount(h5p_inv[tr_mask], weights=tr_m, minlength=n_5p)
+        g5_v = np.bincount(h5p_inv[tr_mask], weights=tr_v, minlength=n_5p)
+        g5_active = g5_m + g5_v > 0
+        k5_pair = np.where(g5_active, (g5_m + float(k_h3_5) * k_p[h5p_p]) / (g5_v + float(k_h3_5)), 0.0)
+        k5_cnt = np.bincount(h5p_h5, weights=g5_active.astype(float), minlength=n_5)
+        k5_sum = np.bincount(h5p_h5, weights=k5_pair, minlength=n_5)
+        k5_map = np.where(k5_cnt > 0, k5_sum / np.maximum(k5_cnt, 1.0), k_nat)
+
+        g7_m = np.bincount(h7_idx[tr_mask], weights=tr_m, minlength=n_7)
+        g7_v = np.bincount(h7_idx[tr_mask], weights=tr_v, minlength=n_7)
+        g7_active = g7_m + g7_v > 0
+        k7_prior = np.where(k5_cnt[h7_to_h5] > 0, k5_map[h7_to_h5], np.where(p_v[h7_to_p] > 0, k_p[h7_to_p], k_nat))
+        k7_map = np.where(g7_active, (g7_m + float(k_h3_7) * k7_prior) / (g7_v + float(k_h3_7)), k7_prior)
+
+        tr_k = k7_map[h7_idx[tr_mask]]
+        cal = float(tr_m.sum()) / max(float((tr_v * tr_k).sum()), 1.0)
+        te_k = k7_map[h7_idx[te_mask]]
+        te_pred_row = ov_viirs[te_mask] * te_k * cal
+
+        te_months, m_inv = np.unique(ov_month[te_mask], return_inverse=True)
+        m_obs = np.bincount(m_inv, weights=ov_modis[te_mask])
+        m_pred = np.bincount(m_inv, weights=te_pred_row)
+        return m_obs, m_pred
+
+    years = sorted(np.unique(ov_year).tolist())
     nat_rows = []
-    for y in sorted(ov["year"].unique()):
-        tr = ov[ov["year"] != y]
-        te = ov[ov["year"] == y].copy()
-        if tr.empty or te.empty:
+    double_nested_hits: list[bool] = []
+    for y_out in years:
+        tr_out_mask = ov_year != y_out
+        te_out_mask = ov_year == y_out
+        if not tr_out_mask.any() or not te_out_mask.any():
             continue
-        k_nat = float(tr["modis"].sum()) / max(float(tr["viirs_px"].sum()), 1.0)
-        pg = tr.groupby("province")[["modis", "viirs_px"]].sum()
-        k_p = (pg["modis"] + float(k_prov) * k_nat) / (pg["viirs_px"] + float(k_prov))
+        m_obs_out, m_pred_out = _predict_fold_fast(tr_out_mask, te_out_mask)
+        te_months = np.unique(ov_month[te_out_mask])
+        nat_rows.append(pd.DataFrame({"month": te_months, "modis": m_obs_out, "pred": m_pred_out, "year": int(y_out)}))
 
-        g5 = tr.groupby(["h3_5", "province"])[["modis", "viirs_px"]].sum().reset_index()
-        g5["kp"] = g5["province"].map(k_p).fillna(k_nat)
-        g5["k5"] = (g5["modis"] + float(k_h3_5) * g5["kp"]) / (g5["viirs_px"] + float(k_h3_5))
-        k5_map = g5.groupby("h3_5")["k5"].mean()
-
-        g7 = tr.groupby(["h3_7", "h3_5"])[["modis", "viirs_px"]].sum().reset_index()
-        g7["k5"] = g7["h3_5"].map(k5_map).fillna(k_nat)
-        g7["k7"] = (g7["modis"] + float(k_h3_7) * g7["k5"]) / (g7["viirs_px"] + float(k_h3_7))
-        k7_map = g7.set_index("h3_7")["k7"]
-
-        tr_k = tr["h3_7"].map(k7_map).fillna(tr["h3_5"].map(k5_map)).fillna(tr["province"].map(k_p)).fillna(k_nat)
-        cal = float(tr["modis"].sum()) / max(float((tr["viirs_px"] * tr_k).sum()), 1.0)
-        te_k = te["h3_7"].map(k7_map).fillna(te["h3_5"].map(k5_map)).fillna(te["province"].map(k_p)).fillna(k_nat)
-        te["pred"] = te["viirs_px"] * te_k * cal
-
-        nm = te.groupby("month", as_index=False)[["modis", "pred"]].sum()
-        nm["year"] = int(y)
-        nat_rows.append(nm)
+        # Inner LOYO strictly inside tr_out (outer year y_out is 100% excluded)
+        in_obs_list, in_pred_list = [], []
+        for y_in in years:
+            if y_in == y_out:
+                continue
+            in_tr_mask = tr_out_mask & (ov_year != y_in)
+            in_te_mask = ov_year == y_in
+            if not in_tr_mask.any() or not in_te_mask.any():
+                continue
+            io, ip = _predict_fold_fast(in_tr_mask, in_te_mask)
+            in_obs_list.append(io)
+            in_pred_list.append(ip)
+        in_obs_all = np.concatenate(in_obs_list)
+        in_pred_all = np.concatenate(in_pred_list)
+        in_ratios = (in_obs_all + 1.0) / (in_pred_all + 1.0)
+        q_lo, q_hi = np.quantile(in_ratios, [0.10, 0.90])
+        lo = np.clip((m_pred_out + 1.0) * float(q_lo) - 1.0, 0.0, None)
+        hi = (m_pred_out + 1.0) * float(q_hi) - 1.0
+        double_nested_hits.extend(((m_obs_out >= lo) & (m_obs_out <= hi)).tolist())
 
     dn = pd.concat(nat_rows, ignore_index=True)
     ann = dn.groupby("year")[["modis", "pred"]].sum()
@@ -667,7 +789,7 @@ def h3_res7_hierarchical_loyo(
     mae_m = float((dn["pred"] - dn["modis"]).abs().mean())
     r_m = float(np.corrcoef(dn["pred"], dn["modis"])[0, 1]) if dn["pred"].std() > 0 else 0.0
     bias_pct = 100.0 * float(ann["pred"].sum() - ann["modis"].sum()) / max(float(ann["modis"].sum()), 1.0)
-    strict_cov = strict_oos_pi80_coverage(dn, "modis", "pred")
+    double_nested_cov = round(float(np.mean(double_nested_hits)) * 100.0, 1) if double_nested_hits else 0.0
 
     return {
         "method": "h3_res7_multiscale_hierarchical_loyo",
@@ -682,5 +804,6 @@ def h3_res7_hierarchical_loyo(
         "national_monthly_mae": round(mae_m, 2),
         "national_monthly_r": round(r_m, 4),
         "national_net_bias_pct": round(bias_pct, 3),
-        "strict_noncircular_oos_pi80_coverage_pct": strict_cov,
+        "double_nested_oos_pi80_coverage_pct": double_nested_cov,
+        "strict_noncircular_oos_pi80_coverage_pct": double_nested_cov,
     }

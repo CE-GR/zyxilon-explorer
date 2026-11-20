@@ -144,7 +144,13 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
     lp_lo = np.clip((lp_sub["pred"] + 1.0) * float(lo_q) - 1.0, 0.0, None)
     lp_hi = (lp_sub["pred"] + 1.0) * float(hi_q) - 1.0
     pi80_cov_pct = round(float(((lp_sub["modis"] >= lp_lo) & (lp_sub["modis"] <= lp_hi)).mean()) * 100.0, 1)
-    strict_oos_cov_pct = harmonize.strict_oos_pi80_coverage(lp_sub, "modis", "pred")
+
+    ov_series = harmonize.overlap(series)
+    frp_method = stored_model.get("frp", {}).get("method", "loglineal_frp_temporada")
+    cnt_dn = harmonize.double_nested_oos_pi80_coverage(ov_series, method=current_method, is_frp=False)
+    frp_dn = harmonize.double_nested_oos_pi80_coverage(ov_series, method=frp_method, is_frp=True)
+    strict_oos_cov_pct = cnt_dn["coverage_pct"]
+    frp_strict_oos_cov_pct = frp_dn["coverage_pct"]
 
     yr_df = cells_df.assign(y=pd.to_datetime(cells_df["month"]).dt.year).groupby("y")[["modis", "viirs_px"]].sum()
     annual_reference = {
@@ -172,9 +178,18 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
             "count_monthly_mult": [round(float(lo_q), 4), round(float(hi_q), 4)],
             "frp_monthly_mult": [round(float(stored_model["frp"]["banda"]["mensual"][0]), 4),
                                  round(float(stored_model["frp"]["banda"]["mensual"][1]), 4)],
+            "counts_double_nested_oos_coverage_pct": strict_oos_cov_pct,
+            "counts_double_nested_hits": f"{cnt_dn['hits']}/{cnt_dn['total_months']}",
+            "frp_double_nested_oos_coverage_pct": frp_strict_oos_cov_pct,
+            "frp_double_nested_hits": f"{frp_dn['hits']}/{frp_dn['total_months']}",
+            "frp_method": frp_method,
             "strict_noncircular_oos_coverage_pct": strict_oos_cov_pct,
             "calibrated_loyo_coverage_pct": pi80_cov_pct,
-            "note": "strict_noncircular_oos_coverage_pct fits q10/q90 strictly on years != y for every held-out year y (zero circularity; nominal target 80.0%).",
+            "note": (
+                "True double-nested LOYO: for every held-out outer year y, an inner LOYO runs strictly on "
+                "outer_train (years != y) so year y never participates in inner model fitting, inner residuals, "
+                "or q10/q90 quantile calibration. Evaluated independently for both hotspot counts and FRP (MW)."
+            ),
         },
         "hierarchical_shrinkage_01deg_benchmark": hier_bench,
         "h3_res7_multiscale_benchmark": h3_bench,
@@ -191,6 +206,7 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
             and hier_bench.get("national_annual_median_err_pct") is not None
             and h3_bench.get("total_active_h3_res7_cells", 0) > 5000
             and 70.0 <= strict_oos_cov_pct <= 90.0
+            and 70.0 <= frp_strict_oos_cov_pct <= 90.0
         ),
         "raw_count_jump": round(cnt_jump["union_sin_ajuste"], 2),
         "harmonized_jump": round(cnt_jump["armonizado"], 2),
@@ -199,6 +215,9 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
         "h3_res7_cells": h3_bench.get("total_active_h3_res7_cells"),
         "h3_res7_mean_area_km2": h3_bench.get("mean_cell_area_km2"),
         "h3_res7_monthly_mae": h3_bench.get("national_monthly_mae"),
+        "counts_double_nested_oos_pi80_coverage_pct": strict_oos_cov_pct,
+        "frp_double_nested_oos_pi80_coverage_pct": frp_strict_oos_cov_pct,
+        "h3_res7_double_nested_oos_pi80_coverage_pct": h3_bench.get("double_nested_oos_pi80_coverage_pct"),
         "strict_noncircular_oos_pi80_coverage_pct": strict_oos_cov_pct,
         "dr_daily_24h_batch_latency_ms": inference_latency["single_horizon_24h_median_ms"],
     }

@@ -2674,8 +2674,8 @@
                 var targetLat = p.lat + dLat;
                 var targetLon = p.lon + dLon;
 
-                var windSlopeTxt = (windKmh != null ? (Number(windKmh).toFixed(1) + ' km/h') : 'no data') + (p.slope_deg != null ? (' · Slope ' + p.slope_deg + '°') : '');
-                var vectorLabel = spreadAvailable ? 'GFA + GEOS-FP scenario progression' : 'Forecast NASA wind';
+                var windSlopeTxt = (windKmh != null ? (Number(windKmh).toFixed(1) + ' km/h') : 'N/A (1° climatology)') + (p.slope_deg != null ? (' · Slope ' + p.slope_deg + '°') : '');
+                var vectorLabel = spreadAvailable ? (p.is_rd ? 'Open-Meteo + DEM spread vector' : 'GFA + GEOS-FP spread vector') : 'Directional Spread Cone';
                 var hasTemp = p.temp_c != null && isFinite(Number(p.temp_c));
                 var hasRh = p.rh_pct != null && isFinite(Number(p.rh_pct));
                 var hasFwi = p.fwi != null && isFinite(Number(p.fwi));
@@ -2734,7 +2734,7 @@
                             probabilityBlock +
                         '</div>' +
                         '<div class="hud-grid">' +
-                            '<div><div class="hud-label">' + vectorLabel + '</div><div class="hud-val">' + (bearDeg != null ? (Math.round(bearDeg) + '°') : 'no data') + (spreadAvailable ? (' · ' + distKm.toFixed(1) + ' km') : '') + '</div></div>' +
+                            '<div><div class="hud-label">' + vectorLabel + '</div><div class="hud-val">' + (spreadAvailable && bearDeg != null ? (Math.round(bearDeg) + '° · ' + distKm.toFixed(1) + ' km') : (p.spread_24 != null ? ('Disabled (speed ' + (Number(p.spread_24) * factor).toFixed(1) + ' km)') : 'Disabled')) + '</div></div>' +
                             '<div><div class="hud-label">GEOS-FP Wind +' + horizon + 'h</div><div class="hud-val">' + windSlopeTxt + '</div></div>' +
                             frpBlock + sourceBlock + scenarioBlock + predHistBlock +
                             wxRows +
