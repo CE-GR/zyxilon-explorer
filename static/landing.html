@@ -1979,10 +1979,10 @@
           <strong>6. Stationary Thermal Anomaly Filtering (811 Persistent Sources Removed):</strong> Before climatology aggregation, <code>pipeline/clean.py</code> (<code>persistent_cells</code>) filters stationary industrial/landfill hotspots active across ≥9 calendar months and ≥25% of archive months, removing <strong>811 persistent non-vegetation cells</strong> from the VIIRS record so industrial heat never contaminates forest fire baselines.
         </p>
         <p>
-          <strong>7. Asymmetric 80% Out-of-Sample Prediction Intervals &amp; Cross-Scale Hierarchical Shrinkage:</strong> Every reconstructed post-2012 month carries empirical asymmetric <strong>80% Prediction Intervals</strong> (<code>q = 0.10 / 0.90</code>, <strong>79.3%</strong> out-of-sample LOYO coverage) for <strong>both hotspot counts ([0.740×, 1.319×]) and radiative power FRP ([0.575×, 1.464×] MW)</strong>. A complementary Empirical-Bayes <strong>Hierarchical Shrinkage</strong> tier (<code>464</code> active <code>0.1°</code> cells → <code>32</code> official ADM1 provinces → National) lowers national annual median LOYO error to <strong>2.58%</strong> (<code>MAE 15.08</code>, <code>r = 0.966</code>, <code>53.0%</code> direct cell weight), empirically capturing Aqua's 2025–2026 drift (<code>0.224–0.232</code> vs. <code>0.195</code> baseline).
+          <strong>7. Asymmetric 80% LOYO Prediction Intervals &amp; Hierarchical Shrinkage Benchmark:</strong> Every reconstructed post-2012 month carries empirical asymmetric <strong>80% Prediction Intervals</strong> (<code>q = 0.10 / 0.90</code>, empirically calibrated on held-out LOYO residuals, <strong>79.3%</strong> monthly coverage) for <strong>both hotspot counts ([0.740×, 1.319×]) and radiative power FRP ([0.575×, 1.464×] MW)</strong>. An independent Empirical-Bayes <strong>Hierarchical Shrinkage</strong> benchmark (<code>464</code> active <code>0.1°</code> cells → <code>32</code> official ADM1 provinces → National, reported alongside but not replacing the production ensemble) reaches <strong>2.58%</strong> national annual median LOYO error (<code>MAE 15.08</code>, <code>r = 0.966</code>, <code>53.0%</code> direct cell weight), empirically capturing Aqua's 2025–2026 drift (<code>0.224–0.232</code> vs. <code>0.195</code> baseline).
         </p>
         <p>
-          <strong>8. Exact Hispaniola ADM1 Boundary Clipping &amp; 100-Month NOAA-20 Continuity Bridge:</strong> Point-in-polygon filtering against all <strong>32 official Dominican provinces (<code>geoBoundaries ADM1</code>, including offshore islands)</strong> removes <strong>14,572 trans-border (Haiti) and marine detections</strong> (<code>MODIS: 33,160 → 30,653</code>; <code>VIIRS: 106,782 → 94,717</code>) prior to harmonization. Independent <strong>100-month (2018-04 to 2026-07) Suomi-NPP ↔ NOAA-20 cross-validation</strong> (<code>noaa20_cross.json</code>, <code>44,427</code> cleaned detections) confirms <strong>r = 0.9931</strong> continuity (median ratio <code>1.064</code>) across the Nov 2, 2026 <code>NRT EOL</code> transition.
+          <strong>8. Country-Outline Clipping &amp; 100-Month NOAA-20 Continuity Bridge:</strong> Point-in-polygon clipping against the Dominican Republic national outline (<code>pipeline/clean.py</code>, 1:50M boundary) removes <strong>14,572 trans-border (Haiti) and marine detections</strong> (<code>MODIS: 33,160 → 30,653</code>; <code>VIIRS: 106,782 → 94,717</code>) prior to harmonization; detections are then attributed to the <strong>32 official provinces</strong> (<code>geoBoundaries ADM1</code>). Independent <strong>100-month (2018-04 to 2026-07) Suomi-NPP ↔ NOAA-20 cross-validation</strong> (<code>noaa20_cross.json</code>, <code>44,427</code> cleaned detections) confirms <strong>r = 0.9931</strong> continuity (median ratio <code>1.064</code>) across the Nov 2, 2026 <code>NRT EOL</code> transition.
         </p>
         <p>
           <strong>9. Cryptographic SHA-256 Audit &amp; Open-Science Licensing (<code>audit_report.json</code>):</strong> Automated hash verification (<code>all_checks_pass: true</code>) validates all source datasets, <code>186</code> Terrarium DEM tiles, live <strong>NASA GEOS-FP</strong> winds, and the global <code>+24h/+48h/+72h</code> model across <strong>3,201,278 locked NASA GFA fires (2022–2025)</strong> (<code>ROC-AUC 0.941</code>, <code>Brier Skill +36.9%</code> to <code>+46.4%</code>). Released under dual open licenses (<strong>MIT</strong> code / <strong>CC BY 4.0</strong> processed data) with <code>CITATION.cff</code>.
@@ -2008,13 +2008,13 @@
             <tbody class="divide-y divide-ink/20">
               <tr>
                 <td class="p-2 border-r border-ink/20 font-semibold">Harmonize MODIS &amp; VIIRS sensor discontinuity</td>
-                <td class="p-2 border-r border-ink/20">LOYO hybrid H3 Res. 7 calibration (×4.52 → ×0.92, ±2.4% / 6.29% err) + Hierarchical LOYO tier (2.58% ann. err, r = 0.966) + FRP ×1.20 invariance</td>
-                <td class="p-2">Asymmetric 80% PI (79.3% LOYO cov.) across both counts &amp; FRP (MW); filters 811 persistent industrial cells</td>
+                <td class="p-2 border-r border-ink/20">LOYO hybrid H3 Res. 7 calibration (×4.52 → ×0.92, ±2.4% / 6.29% err) + Hierarchical benchmark (2.58% ann. err, r = 0.966) + FRP ×1.20 invariance</td>
+                <td class="p-2">Asymmetric 80% PI (79.3% calibrated LOYO cov.) across both counts &amp; FRP (MW); filters 811 persistent industrial cells</td>
               </tr>
               <tr class="bg-canvas/60">
-                <td class="p-2 border-r border-ink/20 font-semibold">Unified 2000–present burning calendar &amp; ADM1 scope</td>
-                <td class="p-2 border-r border-ink/20">Interactive 12×27 heatmap (Nov 2000 – Aug 2026) + exact 32-province ADM1 clipping (14,572 trans-border/marine points removed)</td>
-                <td class="p-2">Uber H3 Res. 7 (~5.16 km² global / ~3.84 km² DR local), over 100× finer than 0.25°–0.5° Lat/Lon boxes</td>
+                <td class="p-2 border-r border-ink/20 font-semibold">Unified 2000–present burning calendar &amp; provincial scope</td>
+                <td class="p-2 border-r border-ink/20">Interactive 12×27 heatmap (Nov 2000 – Aug 2026) + national-outline clipping (14,572 trans-border/marine points removed) &amp; 32-province ADM1 attribution</td>
+                <td class="p-2">Uber H3 Res. 7 (~5.16 km² global / ~3.84 km² DR local), finer than 0.25°–0.5° Lat/Lon boxes</td>
               </tr>
               <tr>
                 <td class="p-2 border-r border-ink/20 font-semibold">Current activity vs. 27-yr median &amp; 2026+ continuity</td>
@@ -2068,7 +2068,7 @@
         <span class="font-bold text-ink/70">Nov 2000 – Aug 2026</span>
       </div>
       <div id="clim-audit-strip" class="bg-ink text-lime border border-ink px-3 py-1.5 text-[10px] font-mono flex flex-wrap items-center justify-between gap-2">
-        <span>80% PI (79.3% LOYO Cov., Counts + FRP) · Hierarchical LOYO: 2.58% Ann. Err (r=0.966) · NOAA-20 Bridge: r=0.993 (100 mo) · 14,572 Trans-Border + 811 Fixed Filtered</span>
+        <span>80% PI (79.3% LOYO Cov., Counts + FRP) · Hierarchical Benchmark: 2.58% Ann. Err (r=0.966) · NOAA-20 Bridge: r=0.993 (100 mo) · 14,572 Trans-Border + 811 Fixed Filtered</span>
       </div>
 
       <div id="climatology-grid-wrap" class="overflow-x-auto border border-ink p-2.5 bg-paper">
@@ -2784,7 +2784,7 @@
         const nMo = data.noaa20_bridge.meses_comparados;
         const tb = Number(data.territorial_filter.total_transborder_removed).toLocaleString('en-US');
         const pf = Number(data.territorial_filter.persistent_sources_removed).toLocaleString('en-US');
-        strip.innerHTML = `<span>80% PI (${cov}% LOYO Cov., Counts + FRP) · Hierarchical LOYO: ${hErr}% Ann. Err (r=${hR}) · NOAA-20 Bridge: r=${nR} (${nMo} mo) · ${tb} Trans-Border + ${pf} Fixed Filtered</span>`;
+        strip.innerHTML = `<span>80% PI (${cov}% LOYO Cov., Counts + FRP) · Hierarchical Benchmark: ${hErr}% Ann. Err (r=${hR}) · NOAA-20 Bridge: r=${nR} (${nMo} mo) · ${tb} Trans-Border + ${pf} Fixed Filtered</span>`;
       }
       const years = [];
       for (let y = data.years_span[0]; y <= data.years_span[1]; y++) years.push(y);
@@ -2828,8 +2828,8 @@
         if (!data || !data.series) return;
         const hdr = 'h3_scope,territory,year,month,raw_modis,raw_viirs_px,harmonized_count,pi80_lo,pi80_hi,frp_mw,frp_harmonized_mw,frp_pi80_lo,frp_pi80_hi,median_27yr,anomaly_vs_median_pct,sensor_status\n';
         const rows = data.series.map(r => [
-          'DR_NATIONAL_360_H3_RES7',
-          'Dominican Republic (360 H3 Res 7 Cells)',
+          'DR_NATIONAL',
+          'Dominican Republic (National Aggregate)',
           r.year,
           r.month,
           r.raw_modis,
