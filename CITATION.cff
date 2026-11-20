@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use Zyxilon Explorer // IGNIS code or processed harmonization datasets, please cite this work using the metadata below."
 title: "Zyxilon Explorer // IGNIS: Multi-Scale H3 Res. 7 MODIS-VIIRS Harmonization, Non-Circular 80% LOYO Prediction Intervals & +24h/+48h/+72h Wildfire Forecasting"
 type: software
-version: "1.0.0"
+version: "1.1.0"
 date-released: "2026-11-19"
 url: "https://zyxilon.proyectxor.site/"
 repository-code: "https://github.com/CE-GR/zyxilon-explorer"
