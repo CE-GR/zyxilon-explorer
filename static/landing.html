@@ -1951,7 +1951,7 @@
     <div class="bg-paper border-2 border-ink max-w-3xl w-full max-h-[88vh] overflow-y-auto p-5 sm:p-6 space-y-4 hard-card">
       <div class="flex justify-between items-center border-b-2 border-ink pb-3">
         <div>
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink/65">SCIENTIFIC AUDIT &amp; CHALLENGE COMPLIANCE</div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-ink/65">METHODOLOGY &amp; CHALLENGE REQUIREMENTS</div>
           <span class="font-pixel text-xl font-bold">LOYO &amp; H3 TECHNICAL PROTOCOL</span>
         </div>
         <button type="button" onclick="closeMethodologyModal()" class="px-2.5 py-1 border border-ink bg-vermilion text-paper text-xs font-bold cursor-pointer">
@@ -1964,7 +1964,7 @@
           <strong>1. Multi-Scale Spatial Architecture (Uber H3 Res. 7 + 0.1° Operational Grid):</strong> Zyxilon Explorer validates cross-sensor harmonization across BOTH a <strong>4-tier geodesic Uber H3 Resolution 7 hierarchy</strong> (<code>pipeline/harmonize.py:h3_res7_hierarchical_loyo</code>: <code>10,058</code> active DR hexagons at <strong>3.84 km²</strong> measured area → <code>303</code> H3 Res. 5 parents → <code>32</code> ADM1 provinces → National; <strong>MAE 15.37</strong>, <strong>r = 0.962</strong>, <strong>5.27%</strong> annual error) AND the <strong>0.1° (~11 km, 465 cells)</strong> archive/daily forecast grid (~6.25× finer area than 0.25° boxes), plus H3 Res. 8 episode clustering (<code>pipeline/episodes.py</code>).
         </p>
         <p>
-          <strong>2. Leave-One-Year-Out Cross-Validation (LOYO, 2012–2026):</strong> Nested LOYO excludes an entire overlap year out-of-sample, cutting the 2007–2011 vs. 2012–2016 raw VIIRS pixel jump of <strong>×4.52</strong> (annual counts: 1,726 MODIS in 2011 vs. 7,861 VIIRS px / 9,354 combined in 2015) to <strong>×0.91/×0.92</strong> matching MODIS in-overlap by construction (<code>×0.92</code>). Audited production ensemble (<code>model_national.json</code>): <strong>6.29%</strong> median annual error, <strong>MAE 15.62</strong>, <strong>r = 0.964</strong>, <strong>0.008%</strong> net bias (simple ratio <code>razon_px</code> achieves 5.92% / MAE 15.81, proving model stability).
+          <strong>2. Leave-One-Year-Out Cross-Validation (LOYO, 2012–2026):</strong> Nested LOYO excludes an entire overlap year out-of-sample, cutting the 2007–2011 vs. 2012–2016 raw VIIRS pixel jump of <strong>×4.52</strong> (annual counts: 1,726 MODIS in 2011 vs. 7,861 VIIRS px / 9,354 combined in 2015) to <strong>×0.91/×0.92</strong> matching MODIS in-overlap by construction (<code>×0.92</code>). Production ensemble (<code>model_national.json</code>): <strong>6.29%</strong> median annual error, <strong>MAE 15.62</strong>, <strong>r = 0.964</strong>, <strong>0.008%</strong> net bias (simple ratio <code>razon_px</code> achieves 5.92% / MAE 15.81, proving model stability).
         </p>
         <p>
           <strong>3. FRP Thermophysical Invariance (×1.20):</strong> Comparing 2007–2011 vs. 2012–2016 integrated Fire Radiative Power (MW) yields a raw jump of only <strong>×1.20</strong> (vs. <strong>×4.52</strong> in raw pixel counts), confirming post-2012 count growth comes primarily from low-energy agricultural micro-burns (&lt;5 MW) rather than new megafires.
@@ -1985,13 +1985,13 @@
           <strong>8. Country-Outline Clipping &amp; 100-Month Pre-EOL NOAA-20 Bridge:</strong> Point-in-polygon clipping against the Dominican Republic national outline (<code>pipeline/clean.py</code>, <code>world_50m.json</code> 1:50M, ~2–4 km precision) removes <strong>14,572 trans-border (Haiti) and marine detections</strong> (<code>MODIS: 33,160 → 30,653</code>; <code>VIIRS: 106,782 → 94,717</code>) prior to harmonization; detections are then attributed to the <strong>32 official provinces</strong> (<code>geoBoundaries ADM1</code>). Historical <strong>100-month (2018-04 to 2026-07, pre-EOL) Suomi-NPP ↔ NOAA-20 cross-validation</strong> (<code>noaa20_cross.json</code>, <code>44,427</code> cleaned detections) shows <strong>r = 0.9931</strong> with a <code>1.064</code> (+6.4%) median ratio.
         </p>
         <p>
-          <strong>9. Audited DR &amp; Global Forecasts, Real Inference Latency &amp; Pitch Traceability:</strong> <strong>DR Daily Model</strong> (<code>HistGradientBoostingClassifier</code> — scikit-learn's histogram GBDT equivalent to LightGBM — + Isotonic, 22 features, 465 cells, <code>608,220</code> test rows 2023–2026): <strong>ROC-AUC 0.818 / 0.810 / 0.805</strong> (<code>PR-AUC 0.125</code>, 6.5× base rate; Brier Skill <strong>+2.2% / +2.8% / +3.3%</strong> vs. cell×month climatology), benchmarked at <strong>~6.5 ms</strong> (+24h batch of 465 cells) / <strong>~19.5 ms</strong> (all 3 horizons). <strong>Global GFA Model</strong> (1° cells, location+month without weather, <code>3,201,278</code> fires 2022–2025): <strong>ROC-AUC 0.941</strong> (speed MAE +5.1%; direction 27.6% vs. 27.5%). <em>Note:</em> Our 30s NASA submission video prototype displayed early-iteration metrics (<code>0.823 ROC-AUC / LightGBM / 12.4 ms / ±2.4%</code>); all final audited values are persisted in <code>harmonization_audit.json</code> and reproducible via <code>python -m pipeline.audit --offline</code> under <strong>MIT</strong> / <strong>CC BY 4.0</strong>.
+          <strong>9. DR &amp; Global Forecast Metrics, Measured Inference Latency &amp; Pitch Traceability:</strong> <strong>DR Daily Model</strong> (<code>HistGradientBoostingClassifier</code> — scikit-learn's histogram GBDT equivalent to LightGBM — + Isotonic, 22 features, 465 cells, <code>608,220</code> test rows 2023–2026): <strong>ROC-AUC 0.818 / 0.810 / 0.805</strong> (<code>PR-AUC 0.125</code>, 6.5× base rate; Brier Skill <strong>+2.2% / +2.8% / +3.3%</strong> vs. cell×month climatology), benchmarked at <strong>~6.5 ms</strong> (+24h batch of 465 cells) / <strong>~19.5 ms</strong> (all 3 horizons). <strong>Global GFA Model</strong> (1° cells, location+month without weather, <code>3,201,278</code> fires 2022–2025): <strong>ROC-AUC 0.941</strong> (speed MAE +5.1%; direction 27.6% vs. 27.5%). <em>Note:</em> Our 30s submission video prototype displayed early-iteration metrics (<code>0.823 ROC-AUC / LightGBM / 12.4 ms / ±2.4%</code>); final repository values are persisted in <code>harmonization_audit.json</code> and reproducible via our internal self-check script <code>python -m pipeline.audit --offline</code> (verifies local file integrity &amp; metric recomputation; not an external NASA or CONAE audit).
         </p>
       </div>
 
       <div class="border-t-2 border-ink pt-3">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-          <span class="font-pixel text-sm font-bold uppercase">NASA / CONAE Challenge Compliance Matrix</span>
+          <span class="font-pixel text-sm font-bold uppercase">Challenge Requirements Summary</span>
           <button type="button" onclick="closeMethodologyModal(); openClimatologyModal();" class="px-2.5 py-1 border border-ink bg-lime text-ink text-[10px] font-bold cursor-pointer">
             📅 OPEN 12×27 CLIMATOLOGY &amp; CSV ↗
           </button>
@@ -2000,9 +2000,9 @@
           <table class="w-full text-[10.5px] text-left border-collapse">
             <thead>
               <tr class="bg-ink text-lime uppercase">
-                <th class="p-2 border-r border-paper/20">Official Challenge Requirement</th>
+                <th class="p-2 border-r border-paper/20">Challenge Requirement</th>
                 <th class="p-2 border-r border-paper/20">Zyxilon Explorer // IGNIS</th>
-                <th class="p-2">Audited Details &amp; Transparency</th>
+                <th class="p-2">Implementation Details &amp; Scope</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-ink/20">
@@ -2027,9 +2027,9 @@
                 <td class="p-2">Colorblind-safe palettes synced across both live <code>/mapa</code> hotspots/forecasts and the 12×27 climatology matrix</td>
               </tr>
               <tr>
-                <td class="p-2 border-r border-ink/20 font-semibold">Early warning, open-science audit &amp; field response</td>
+                <td class="p-2 border-r border-ink/20 font-semibold">Early warning, reproducibility &amp; field response</td>
                 <td class="p-2 border-r border-ink/20">DR Daily +24/48/72h (<code>ROC-AUC 0.818</code>, 6.5 ms +24h batch) + Global GFA (<code>ROC-AUC 0.941</code>, 3.2M fires) + GEOS-FP wind, VPD, FWI &amp; ~72m DEM</td>
-                <td class="p-2">Clean-clone reproducible <code>pipeline.audit --offline</code>, <code>harmonization_audit.json</code>, MIT code &amp; CC BY 4.0 data</td>
+                <td class="p-2">Internal self-check <code>pipeline.audit --offline</code>, <code>harmonization_audit.json</code>, MIT code &amp; CC BY 4.0 data</td>
               </tr>
             </tbody>
           </table>

@@ -2,7 +2,6 @@
 
 [![Code License: MIT](https://img.shields.io/badge/Code_License-MIT-A6F014?style=flat-square)](LICENSE)
 [![Data License: CC BY 4.0](https://img.shields.io/badge/Data_License-CC_BY_4.0-0E0E0E?style=flat-square)](DATA_LICENSE)
-[![Reproducible Audit](https://img.shields.io/badge/Audit-pipeline.audit_--offline-0E0E0E?style=flat-square)](data/processed/harmonization_audit.json)
 [![Citation](https://img.shields.io/badge/Citation-CITATION.cff-0E0E0E?style=flat-square)](CITATION.cff)
 [![Live Platform](https://img.shields.io/badge/Live_Station-zyxilon.proyectxor.site-FF3B1D?style=flat-square)](https://zyxilon.proyectxor.site/)
 
@@ -10,17 +9,17 @@
 
 ---
 
-## 1. Executive Summary (100% Audited Against Code & Processed Artifacts)
+## 1. Executive Summary
 
 - **The Physical Discontinuity:** Across `2000–2026`, NASA FIRMS fire records span two thermal sensor generations: **MODIS** (Terra & Aqua, `~705 km` orbit, `1 km` nominal pixel, `3.96 µm`) and **VIIRS** (Suomi-NPP, NOAA-20 & NOAA-21, `~824 km` orbit, `375 m` pixel, `3.74 µm`, `~7.1×` sub-pixel footprint ratio). Comparing mean annual activity in `2012–2016` against `2007–2011` (`pipeline/harmonize.py:jump_metrics`) produces a **`×4.52`** raw VIIRS pixel jump (e.g., `1,726` cleaned MODIS detections in `2011` vs. `7,861` VIIRS pixels / `9,354` combined in `2015`), whereas independent MODIS activity in the same window was **`×0.92`**.
-- **Multi-Scale Geodesic & Operational Solution:** Zyxilon Explorer combines **three audited harmonization tiers** plus **live `+24h/+48h/+72h` forecasting**, with every single number stored in plain JSON ([`data/processed/harmonization_audit.json`](data/processed/harmonization_audit.json)) and recomputed live by `python -m pipeline.audit --offline` on any clean clone:
+- **Multi-Scale Geodesic & Operational Solution:** Zyxilon Explorer combines **three harmonization tiers** plus **live `+24h/+48h/+72h` forecasting**, with every number stored in plain JSON ([`data/processed/harmonization_audit.json`](data/processed/harmonization_audit.json)) and recomputed locally by our internal verification script (`python -m pipeline.audit --offline`) on any clean clone:
   1. **Production National Radiometric Ensemble (`model_national.json`):** Collapses `×4.52 → ×0.91/×0.92` (`6.29%` annual median error, `MAE 15.62`, `r = 0.964`, `0.008%` net bias; simple ratio `razon_px` achieves `5.92%` / `MAE 15.81`), with **strictly non-circular out-of-sample `80%` Prediction Intervals (`78.7%` held-out coverage)** across **both counts AND Fire Radiative Power (FRP, MW)**.
   2. **True 4-Tier Geodesic Uber H3 Resolution 7 Hierarchy (`pipeline/harmonize.py:h3_res7_hierarchical_loyo`):** Indexes all `30,653` MODIS + `55,917` VIIRS events (`81,089` pixels) onto **`10,058` active Uber H3 Res. 7 hexagons** (`3.84 km²` measured area — **`~160×` finer** than `0.25°` rectangular grids) → `303` H3 Res. 5 parents → `32` ADM1 provinces → National, beating the flat national ensemble in monthly MAE (**`15.37`** vs `15.62`, `r = 0.9622`, `5.27%` annual median error, **`78.7%` strict non-circular OOS `80% PI`**).
   3. **0.1° Empirical-Bayes Hierarchical Shrinkage (`pipeline/harmonize.py:hierarchical_shrinkage_loyo`):** `464` active overlap `0.1°` (~11 km) cells → `32` ADM1 provinces → National, lowering national annual median LOYO error to **`2.58%`** (`MAE 15.08`, `r = 0.9662`, `53.0%` direct cell weight).
 
 ---
 
-## 2. Harmonization Methodology & Audited Scientific Proofs
+## 2. Harmonization Methodology & Validation Metrics
 
 ### True Geodesic Uber H3 Res. 7 (`3.84 km²`) + `0.1°` (`465`-Cell) Dual Grid Architecture
 - **True Multi-Scale Geodesic H3 Res. 7 (`h3_res7_hierarchical_loyo`):** Operates directly on point-level `modis_points.parquet` & `viirs_events.parquet` (`10,058` active DR Res-7 hexagons, `3.84 km²` measured via `h3.cell_area`, `9,669` overlap hexagons → `303` Res-5 parents → `32` ADM1 provinces → National), plus H3 Res. 8 episode clustering (`pipeline/episodes.py`) and circle AOI exports (`pipeline/spatial_circle.py`).
@@ -66,14 +65,14 @@ Both forecast tiers are reported side-by-side from their locked out-of-sample te
 
 - **Live Atmospheric Physics & Accessible Cartography (`/mapa`):** Computes on-demand **Tetens VPD (kPa)**, **Van Wagner Canadian FWI (FFMC / BUI / FWI)**, AWS Terrarium DEM slope (`~72.3 m` spacing across `465` DR cells), and **NASA GEOS-FP** wind vectors, with CVD-safe palettes (`IGNIS | VIRIDIS | CIVIDIS`), freehand polygon/circle exports (`CSV` / `.xls` / `GeoJSON`), and keyless public CARTO basemaps.
 
-### Running Locally & Reproducing the Audit on a Clean Clone
+### Running Locally & Reproducing Metrics on a Clean Clone
 
 ```bash
 # Install dependencies into a virtual environment
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Run full offline audit on a clean clone (no data/raw/ or API keys needed)
+# Run internal reproducibility & file-integrity self-check (no data/raw/ or API keys needed)
 python -m pipeline.audit --offline
 
 # Launch FastAPI server (http://localhost:8080)
@@ -94,12 +93,12 @@ This repository uses dual OSI / Open-Knowledge licensing aligned with NASA Open 
 
 ---
 
-## 5. Traceability (30s Submission Video → Final Audited Repository) & Declared Limitations
+## 5. Traceability (30s Submission Video → Final Repository) & Declared Limitations
 
-### Pitch Video (`30s`) vs. Final Audited Code Traceability
-To ensure full transparency between our 30-second hackathon pitch video and the audited repository:
+### Pitch Video (`30s`) vs. Final Code Traceability
+To ensure full transparency between our 30-second hackathon pitch video and the final repository:
 
-| 30s Pitch Prototype Metric | Final Audited Repository Value | Audited Source Artifact |
+| 30s Pitch Prototype Metric | Final Repository Value | Source File |
 | --- | --- | --- |
 | `×4.52 → ×0.92`, `FRP ×1.20` | **`×4.52 → ×0.91/×0.92`**, **`FRP ×1.20`** (exact) | `data/processed/harmonization_audit.json` |
 | `Uber H3 Res. 7` | **`10,058` H3 Res. 7 cells (`3.84 km²` measured, `MAE 15.37`, `r = 0.962`)** + `0.1°` (`465`-cell) operational grid | `pipeline/harmonize.py:h3_res7_hierarchical_loyo` |
@@ -113,7 +112,7 @@ To ensure full transparency between our 30-second hackathon pitch video and the 
 3. **Pre-2012 Sub-Resolution Micro-Burns:** In cells where `2000–2011` had only sub-`1 km` burns missed by MODIS, reconstructed pre-2012 values remain zero rather than synthesizing detections.
 4. **Global Forecast Scope & Spread Limits (`global_fire_model_metrics.json`):** The global `ROC-AUC 0.941` model uses location and month only (no weather forecast) benchmarked against a location-agnostic global monthly baseline. Global spread speed improves MAE by **`+5.05%`** (`0.439` vs. `0.462 km/day`), while historical direction-sector accuracy (`27.6%` vs. `27.5%` baseline) shows negligible skill; GEOS-FP wind vectors represent wind-driven scenarios, not validated fire perimeters.
 5. **Post-EOL Cross-Sensor & Weather Domain Shift:** The DR daily model (`ROC-AUC 0.818`) was trained on historical Suomi-NPP events and NASA POWER reanalysis, whereas live NRT runs on NOAA-20/NOAA-21 (which showed a `+6.4%` pre-EOL count ratio vs. S-NPP) and Open-Meteo forecasts; post-Nov 2026 NRT cross-sensor drift is not yet independently validated.
-6. **Raw Archives & Audit Scope:** Multi-gigabyte raw archives under `data/raw/` are excluded via `.gitignore`. Locally (with `data/raw/` present), `python -m pipeline.audit` verifies all raw SHA-256 hashes; on a clean GitHub clone, `python -m pipeline.audit --offline` recomputes and verifies all bundled processed datasets, nested LOYO, H3 Res. 7 hierarchy, non-circular `80% PI`, latency, and model metrics (`raw_files_present: false`).
+6. **Internal Self-Check & File-Integrity Scope:** `python -m pipeline.audit` (`audit_report.json` and `harmonization_audit.json`) is an **internal self-check script** written by this team — **this project has not been externally audited, certified, or endorsed by NASA or CONAE**. SHA-256 checks verify local file integrity against expected checksums (not external data authenticity or scientific correctness). Multi-gigabyte raw archives under `data/raw/` are excluded via `.gitignore`; on a clean GitHub clone, `python -m pipeline.audit --offline` recomputes the bundled processed metrics (`raw_files_present: false`).
 
 ---
 
@@ -122,4 +121,4 @@ To ensure full transparency between our 30-second hackathon pitch video and the 
 - **NASA FIRMS (LANCE / EOSDIS):** MODIS Collection 6.1 (`MOD14 / MYD14 / MCD14DL`, Terra & Aqua, `1 km`) and VIIRS `375 m` (`VNP14IMG / VNP14IMGT` Suomi-NPP archive, `VJ114IMGT` NOAA-20, `VJ214IMGT` NOAA-21).
 - **NASA Global Fire Atlas (ORNL DAAC / GFA, Zenodo `17669692`), NASA POWER & NASA GEOS-FP:** Historical ignition/spread priors, daily meteorological reanalysis, and live `+24h/+48h/+72h` wind forecasts.
 - **Topography & Administrative Boundaries:** AWS Registry of Open Data Terrarium elevation tiles (`186` tiles, open SRTM/DEM derivatives), Natural Earth 1:50M country outline (`static/world_50m.json`), `geoBoundaries ADM1` 32 Dominican provinces (`static/dom_provinces.geojson`), and `Open-Meteo`.
-- **Brand Notice:** Independent open-science project created for the **2026 NASA International Space Apps Challenge**. Uses publicly accessible NASA Earthdata datasets without displaying or implying endorsement via official NASA logos.
+- **Brand Notice:** Independent open-science project created for the **2026 NASA International Space Apps Challenge**. Uses publicly accessible NASA Earthdata datasets without displaying official NASA logos and has not been audited, certified, or endorsed by NASA or CONAE.
