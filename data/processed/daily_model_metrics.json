@@ -2523,11 +2523,13 @@
     }
   },
   "objetivo_observable_noaa20": {
-    "objetivo": "P(≥1 evento VIIRS NOAA-20 en celda 0.1° en (t, t+h]) — objetivo operativo NRT activo",
+    "objetivo": "P(≥1 evento VIIRS NOAA-20 en celda 0.1° en (t, t+h])",
     "split": {
-      "train": "2012–2017 S-NPP + 2018–2022 NOAA-20 (1 satélite/día)",
-      "calibracion": "2023 (100% NOAA-20)",
-      "prueba": "2024–2026 (100% NOAA-20)"
+      "train": "2012–2022 (S-NPP before 2018-04-01, then NOAA-20)",
+      "calibracion": "2023-01-01 to 2023-06-30",
+      "politica": "2023-07-01 to 2023-12-31",
+      "prueba": "2024-01-01 to 2026-07-31 (retrospective)",
+      "purge": "Targets end strictly before the following block"
     },
     "periodo_panel": [
       "2018-04-01",
@@ -2535,553 +2537,632 @@
     ],
     "n_celdas": 465,
     "n_test_filas": 438495,
+    "coherencia": {
+      "filas_comunes": 437100,
+      "cruces_antes": 19052,
+      "cruces_despues": 0
+    },
     "fuentes": {
-      "incendios_noaa20": {
-        "archivo": "data/processed/viirs_noaa20_events.parquet",
-        "sensor": "VIIRS NOAA-20 (JPSS-1, activo NRT, 31,253 eventos 2018-04 a 2026-07)",
-        "sha256": "244caa7a2e96ae566e29d120c9889e4afa3ec93bef2fec5d4189f1cce6619b38"
+      "eventos_entrenamiento": {
+        "archivo": "data/processed/forecast_events.parquet",
+        "sha256": "8d184cd8d6376499ca6d24a11b6a1b04b766fa413f8e0c7fa95eb346e8589992"
+      },
+      "mascara_noaa20": {
+        "archivo": "data/processed/forecast_noaa20_mask.parquet",
+        "sha256": "c7cb4c198e989d07b8a2e928e2193a0037c99d58b3fcade35147d78666c2af0b",
+        "ajustada_hasta": "2022-12-31",
+        "n_celdas": 545
+      },
+      "estadisticas_celda": {
+        "archivo": "data/processed/daily_cell_stats_noaa20.parquet",
+        "sha256": "9034454e9426b51697ec04d9ab68af6409b26f3d2b938d3d502c6a7e9dc068e1"
       },
       "modelo_serializado_noaa20": {
         "archivo": "data/processed/daily_model_noaa20.pkl",
-        "sha256": "f0111dc74ad433910d66992ad02a817ffa6ea74d99ed691a6cdccbcfef4c871f",
+        "sha256": "38312b605cd94b879dae381f7c61e2eebd5a7c9fc8b6ae5d82bb7c9bc909fbfb",
         "sklearn_version": "1.9.1"
       }
     },
     "horizontes": {
       "+24h": {
         "Climatología celda×mes": {
-          "roc_auc": 0.7667,
-          "pr_auc": 0.0818,
-          "brier": 0.01748,
+          "roc_auc": 0.7739,
+          "pr_auc": 0.0889,
+          "brier": 0.01861,
           "brier_skill_vs_clim_pct": 0.0,
-          "hit_rate_topk": 0.1453,
-          "base_rate": 0.01836,
-          "pss": 0.3882,
-          "threshold_cal": 0.02251,
-          "tpr": 0.6874,
-          "fpr": 0.2991,
-          "far": 0.9588,
-          "fnr": 0.3126,
-          "ece": 0.00452,
+          "hit_rate_topk": 0.152,
+          "base_rate": 0.01966,
+          "pss": 0.4032,
+          "threshold_cal": 0.02297,
+          "tpr": 0.699,
+          "fpr": 0.2958,
+          "far": 0.9548,
+          "fnr": 0.301,
+          "ece": 0.00389,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
               "bin_hi": 0.0029,
               "mean_pred": 0.0,
-              "obs_freq": 0.00266,
-              "count": 66805
+              "obs_freq": 0.00263,
+              "count": 67353
             },
             {
               "bin_lo": 0.0029,
               "bin_hi": 0.0059,
               "mean_pred": 0.00301,
               "obs_freq": 0.0046,
-              "count": 51138
+              "count": 50457
             },
             {
               "bin_lo": 0.0059,
               "bin_hi": 0.0088,
               "mean_pred": 0.00601,
-              "obs_freq": 0.00654,
-              "count": 48044
+              "obs_freq": 0.00716,
+              "count": 49043
             },
             {
               "bin_lo": 0.0088,
-              "bin_hi": 0.0121,
-              "mean_pred": 0.00973,
-              "obs_freq": 0.00994,
-              "count": 52625
+              "bin_hi": 0.0117,
+              "mean_pred": 0.00901,
+              "obs_freq": 0.00927,
+              "count": 38200
             },
             {
-              "bin_lo": 0.0121,
+              "bin_lo": 0.0117,
               "bin_hi": 0.0155,
-              "mean_pred": 0.0138,
-              "obs_freq": 0.01324,
-              "count": 40556
+              "mean_pred": 0.01324,
+              "obs_freq": 0.01322,
+              "count": 54233
             },
             {
               "bin_lo": 0.0155,
               "bin_hi": 0.0235,
-              "mean_pred": 0.01887,
-              "obs_freq": 0.01634,
-              "count": 46335
+              "mean_pred": 0.01884,
+              "obs_freq": 0.01666,
+              "count": 45689
             },
             {
               "bin_lo": 0.0235,
               "bin_hi": 0.0323,
-              "mean_pred": 0.02675,
-              "obs_freq": 0.02024,
-              "count": 42641
+              "mean_pred": 0.02682,
+              "obs_freq": 0.02187,
+              "count": 42982
             },
             {
               "bin_lo": 0.0323,
               "bin_hi": 0.0528,
-              "mean_pred": 0.03997,
-              "obs_freq": 0.03027,
-              "count": 46024
+              "mean_pred": 0.03999,
+              "obs_freq": 0.03258,
+              "count": 44626
             },
             {
               "bin_lo": 0.0528,
               "bin_hi": 1.0,
-              "mean_pred": 0.09258,
-              "obs_freq": 0.07389,
-              "count": 43862
+              "mean_pred": 0.096,
+              "obs_freq": 0.07979,
+              "count": 45447
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.02251,
-              "precision": 0.0412,
-              "far": 0.9588,
-              "recall": 0.6874,
-              "fpr": 0.2991,
-              "pss": 0.3882,
-              "area_alerted_pct": 30.62,
-              "false_alarms_per_1000km2_day": 2.5182
+              "alerts": 133055,
+              "tp": 6020,
+              "fp": 127035,
+              "fn": 2592,
+              "threshold": 0.02297,
+              "precision": 0.0452,
+              "far": 0.9548,
+              "recall": 0.699,
+              "fpr": 0.2958,
+              "pss": 0.4032,
+              "area_alerted_pct": 30.38,
+              "false_alarms_per_1000km2_day": 2.4873
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 47072,
+              "tp": 3693,
+              "fp": 43379,
+              "fn": 4919,
               "threshold": 0.05,
-              "precision": 0.0726,
-              "far": 0.9274,
-              "recall": 0.4121,
-              "fpr": 0.0985,
-              "pss": 0.3136,
-              "area_alerted_pct": 10.43,
-              "false_alarms_per_1000km2_day": 0.8293
+              "precision": 0.0785,
+              "far": 0.9215,
+              "recall": 0.4288,
+              "fpr": 0.101,
+              "pss": 0.3278,
+              "area_alerted_pct": 10.75,
+              "false_alarms_per_1000km2_day": 0.8493
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 14874,
+              "tp": 1897,
+              "fp": 12977,
+              "fn": 6715,
               "threshold": 0.1,
-              "precision": 0.123,
-              "far": 0.877,
-              "recall": 0.1822,
-              "fpr": 0.0243,
-              "pss": 0.1579,
-              "area_alerted_pct": 2.72,
-              "false_alarms_per_1000km2_day": 0.2045
+              "precision": 0.1275,
+              "far": 0.8725,
+              "recall": 0.2203,
+              "fpr": 0.0302,
+              "pss": 0.1901,
+              "area_alerted_pct": 3.4,
+              "false_alarms_per_1000km2_day": 0.2541
             },
             {
               "tier": "critico_20pct",
+              "alerts": 1909,
+              "tp": 473,
+              "fp": 1436,
+              "fn": 8139,
               "threshold": 0.2,
-              "precision": 0.2496,
-              "far": 0.7504,
-              "recall": 0.0519,
-              "fpr": 0.0029,
-              "pss": 0.0489,
-              "area_alerted_pct": 0.38,
-              "false_alarms_per_1000km2_day": 0.0246
+              "precision": 0.2478,
+              "far": 0.7522,
+              "recall": 0.0549,
+              "fpr": 0.0033,
+              "pss": 0.0516,
+              "area_alerted_pct": 0.44,
+              "false_alarms_per_1000km2_day": 0.0281
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 465,
+              "tp": 127,
+              "fp": 338,
+              "fn": 8485,
               "threshold": 0.3,
-              "precision": 0.276,
-              "far": 0.724,
-              "recall": 0.0096,
-              "fpr": 0.0005,
-              "pss": 0.0091,
-              "area_alerted_pct": 0.06,
-              "false_alarms_per_1000km2_day": 0.004
+              "precision": 0.2731,
+              "far": 0.7269,
+              "recall": 0.0147,
+              "fpr": 0.0008,
+              "pss": 0.014,
+              "area_alerted_pct": 0.11,
+              "false_alarms_per_1000km2_day": 0.0066
             }
-          ]
+          ],
+          "n_evaluated": 438030
         },
         "Persistencia 7 días (sin calibrar)": {
-          "roc_auc": 0.7829,
-          "pr_auc": 0.0891,
-          "brier": 0.03802,
-          "brier_skill_vs_clim_pct": -117.51,
-          "hit_rate_topk": 0.1506,
-          "base_rate": 0.01836,
-          "pss": 0.4245,
-          "threshold_cal": 0.01515,
-          "tpr": 0.682,
-          "fpr": 0.2575,
-          "far": 0.9528,
-          "fnr": 0.318,
-          "ece": 0.04845,
+          "roc_auc": 0.7904,
+          "pr_auc": 0.0975,
+          "brier": 0.03971,
+          "brier_skill_vs_clim_pct": -113.34,
+          "hit_rate_topk": 0.1651,
+          "base_rate": 0.01966,
+          "pss": 0.4325,
+          "threshold_cal": 0.01173,
+          "tpr": 0.7635,
+          "fpr": 0.331,
+          "far": 0.9558,
+          "fnr": 0.2365,
+          "ece": 0.04934,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
               "bin_hi": 0.0015,
               "mean_pred": 0.0,
-              "obs_freq": 0.00227,
-              "count": 65684
+              "obs_freq": 0.00226,
+              "count": 66239
             },
             {
               "bin_lo": 0.0015,
               "bin_hi": 0.0029,
               "mean_pred": 0.0015,
               "obs_freq": 0.00392,
-              "count": 49717
+              "count": 49022
             },
             {
               "bin_lo": 0.0029,
               "bin_hi": 0.0044,
               "mean_pred": 0.003,
-              "obs_freq": 0.00582,
-              "count": 46047
+              "obs_freq": 0.00625,
+              "count": 46877
             },
             {
               "bin_lo": 0.0044,
               "bin_hi": 0.0061,
-              "mean_pred": 0.00486,
-              "obs_freq": 0.00835,
-              "count": 49472
+              "mean_pred": 0.00487,
+              "obs_freq": 0.00852,
+              "count": 49173
             },
             {
               "bin_lo": 0.0061,
               "bin_hi": 0.0088,
-              "mean_pred": 0.00703,
-              "obs_freq": 0.01113,
-              "count": 43305
+              "mean_pred": 0.00702,
+              "obs_freq": 0.01124,
+              "count": 42798
             },
             {
               "bin_lo": 0.0088,
               "bin_hi": 0.0132,
-              "mean_pred": 0.01039,
-              "obs_freq": 0.01454,
-              "count": 51104
+              "mean_pred": 0.01035,
+              "obs_freq": 0.01493,
+              "count": 49486
             },
             {
               "bin_lo": 0.0132,
-              "bin_hi": 0.0205,
-              "mean_pred": 0.016,
-              "obs_freq": 0.0205,
-              "count": 43513
+              "bin_hi": 0.0209,
+              "mean_pred": 0.01619,
+              "obs_freq": 0.02183,
+              "count": 46317
             },
             {
-              "bin_lo": 0.0205,
-              "bin_hi": 0.1144,
-              "mean_pred": 0.03447,
-              "obs_freq": 0.03948,
-              "count": 45368
+              "bin_lo": 0.0209,
+              "bin_hi": 0.5015,
+              "mean_pred": 0.04894,
+              "obs_freq": 0.04271,
+              "count": 43527
             },
             {
-              "bin_lo": 0.1144,
+              "bin_lo": 0.5015,
               "bin_hi": 1.0,
-              "mean_pred": 0.52362,
-              "obs_freq": 0.07093,
-              "count": 43820
+              "mean_pred": 0.52794,
+              "obs_freq": 0.07777,
+              "count": 44591
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.01515,
-              "precision": 0.0472,
-              "far": 0.9528,
-              "recall": 0.682,
-              "fpr": 0.2575,
-              "pss": 0.4245,
-              "area_alerted_pct": 26.53,
-              "false_alarms_per_1000km2_day": 2.168
+              "alerts": 148695,
+              "tp": 6575,
+              "fp": 142120,
+              "fn": 2037,
+              "threshold": 0.01173,
+              "precision": 0.0442,
+              "far": 0.9558,
+              "recall": 0.7635,
+              "fpr": 0.331,
+              "pss": 0.4325,
+              "area_alerted_pct": 33.95,
+              "false_alarms_per_1000km2_day": 2.7826
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 53048,
+              "tp": 4080,
+              "fp": 48968,
+              "fn": 4532,
               "threshold": 0.05,
-              "precision": 0.071,
-              "far": 0.929,
-              "recall": 0.4383,
-              "fpr": 0.1072,
-              "pss": 0.331,
-              "area_alerted_pct": 11.33,
-              "false_alarms_per_1000km2_day": 0.9028
+              "precision": 0.0769,
+              "far": 0.9231,
+              "recall": 0.4738,
+              "fpr": 0.114,
+              "pss": 0.3597,
+              "area_alerted_pct": 12.11,
+              "false_alarms_per_1000km2_day": 0.9588
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 46205,
+              "tp": 3575,
+              "fp": 42630,
+              "fn": 5037,
               "threshold": 0.1,
-              "precision": 0.0711,
-              "far": 0.9289,
-              "recall": 0.3891,
-              "fpr": 0.095,
-              "pss": 0.2941,
-              "area_alerted_pct": 10.04,
-              "false_alarms_per_1000km2_day": 0.8002
+              "precision": 0.0774,
+              "far": 0.9226,
+              "recall": 0.4151,
+              "fpr": 0.0993,
+              "pss": 0.3158,
+              "area_alerted_pct": 10.55,
+              "false_alarms_per_1000km2_day": 0.8347
             },
             {
               "tier": "critico_20pct",
+              "alerts": 45705,
+              "tp": 3495,
+              "fp": 42210,
+              "fn": 5117,
               "threshold": 0.2,
-              "precision": 0.0703,
-              "far": 0.9297,
-              "recall": 0.3805,
-              "fpr": 0.0942,
-              "pss": 0.2864,
-              "area_alerted_pct": 9.94,
-              "false_alarms_per_1000km2_day": 0.7929
+              "precision": 0.0765,
+              "far": 0.9235,
+              "recall": 0.4058,
+              "fpr": 0.0983,
+              "pss": 0.3075,
+              "area_alerted_pct": 10.43,
+              "false_alarms_per_1000km2_day": 0.8264
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 45705,
+              "tp": 3495,
+              "fp": 42210,
+              "fn": 5117,
               "threshold": 0.3,
-              "precision": 0.0703,
-              "far": 0.9297,
-              "recall": 0.3805,
-              "fpr": 0.0942,
-              "pss": 0.2864,
-              "area_alerted_pct": 9.94,
-              "false_alarms_per_1000km2_day": 0.7929
+              "precision": 0.0765,
+              "far": 0.9235,
+              "recall": 0.4058,
+              "fpr": 0.0983,
+              "pss": 0.3075,
+              "area_alerted_pct": 10.43,
+              "false_alarms_per_1000km2_day": 0.8264
             }
-          ]
+          ],
+          "n_evaluated": 438030
         },
         "Persistencia 7 días (calibrada)": {
-          "roc_auc": 0.7832,
-          "pr_auc": 0.0843,
-          "brier": 0.01756,
-          "brier_skill_vs_clim_pct": -0.43,
-          "hit_rate_topk": 0.1543,
-          "base_rate": 0.01836,
-          "pss": 0.4264,
+          "roc_auc": 0.791,
+          "pr_auc": 0.0921,
+          "brier": 0.01884,
+          "brier_skill_vs_clim_pct": -1.2,
+          "hit_rate_topk": 0.1662,
+          "base_rate": 0.01966,
+          "pss": 0.431,
           "threshold_cal": 0.02546,
-          "tpr": 0.698,
-          "fpr": 0.2717,
-          "far": 0.9542,
-          "fnr": 0.302,
-          "ece": 0.00587,
+          "tpr": 0.7687,
+          "fpr": 0.3377,
+          "far": 0.9563,
+          "fnr": 0.2313,
+          "ece": 0.01071,
           "reliability_curve": [
             {
-              "bin_lo": 0.0025,
-              "bin_hi": 0.0034,
-              "mean_pred": 0.00247,
-              "obs_freq": 0.00227,
-              "count": 65684
-            },
-            {
               "bin_lo": 0.0034,
-              "bin_hi": 0.0061,
-              "mean_pred": 0.00364,
-              "obs_freq": 0.00388,
-              "count": 45915
+              "bin_hi": 0.0058,
+              "mean_pred": 0.0034,
+              "obs_freq": 0.00226,
+              "count": 66239
             },
             {
-              "bin_lo": 0.0061,
-              "bin_hi": 0.0081,
-              "mean_pred": 0.00622,
-              "obs_freq": 0.00557,
-              "count": 46339
+              "bin_lo": 0.0058,
+              "bin_hi": 0.0086,
+              "mean_pred": 0.00594,
+              "obs_freq": 0.00392,
+              "count": 49022
             },
             {
-              "bin_lo": 0.0081,
-              "bin_hi": 0.0088,
-              "mean_pred": 0.00814,
-              "obs_freq": 0.00779,
-              "count": 33647
+              "bin_lo": 0.0086,
+              "bin_hi": 0.0103,
+              "mean_pred": 0.00869,
+              "obs_freq": 0.00625,
+              "count": 46877
             },
             {
-              "bin_lo": 0.0088,
-              "bin_hi": 0.0163,
-              "mean_pred": 0.0105,
-              "obs_freq": 0.01036,
-              "count": 60503
+              "bin_lo": 0.0103,
+              "bin_hi": 0.0234,
+              "mean_pred": 0.01208,
+              "obs_freq": 0.00966,
+              "count": 89748
             },
             {
-              "bin_lo": 0.0163,
-              "bin_hi": 0.0243,
-              "mean_pred": 0.01722,
-              "obs_freq": 0.01439,
-              "count": 50162
+              "bin_lo": 0.0234,
+              "bin_hi": 0.0339,
+              "mean_pred": 0.02432,
+              "obs_freq": 0.01471,
+              "count": 50565
             },
             {
-              "bin_lo": 0.0243,
-              "bin_hi": 0.032,
-              "mean_pred": 0.02645,
-              "obs_freq": 0.02049,
-              "count": 43238
+              "bin_lo": 0.0339,
+              "bin_hi": 0.0454,
+              "mean_pred": 0.03601,
+              "obs_freq": 0.02151,
+              "count": 44762
             },
             {
-              "bin_lo": 0.032,
-              "bin_hi": 0.0604,
-              "mean_pred": 0.03826,
-              "obs_freq": 0.02729,
-              "count": 29386
+              "bin_lo": 0.0454,
+              "bin_hi": 0.0734,
+              "mean_pred": 0.0553,
+              "obs_freq": 0.03272,
+              "count": 33406
             },
             {
-              "bin_lo": 0.0604,
+              "bin_lo": 0.0734,
               "bin_hi": 1.0,
-              "mean_pred": 0.09395,
-              "obs_freq": 0.06582,
-              "count": 63156
+              "mean_pred": 0.11503,
+              "obs_freq": 0.07507,
+              "count": 57411
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
+              "alerts": 151631,
+              "tp": 6620,
+              "fp": 145011,
+              "fn": 1992,
               "threshold": 0.02546,
-              "precision": 0.0458,
-              "far": 0.9542,
-              "recall": 0.698,
-              "fpr": 0.2717,
-              "pss": 0.4264,
-              "area_alerted_pct": 27.95,
-              "false_alarms_per_1000km2_day": 2.2873
+              "precision": 0.0437,
+              "far": 0.9563,
+              "recall": 0.7687,
+              "fpr": 0.3377,
+              "pss": 0.431,
+              "area_alerted_pct": 34.62,
+              "false_alarms_per_1000km2_day": 2.8392
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 81083,
+              "tp": 5156,
+              "fp": 75927,
+              "fn": 3456,
               "threshold": 0.05,
-              "precision": 0.0658,
-              "far": 0.9342,
-              "recall": 0.517,
-              "fpr": 0.1372,
-              "pss": 0.3798,
-              "area_alerted_pct": 14.42,
-              "false_alarms_per_1000km2_day": 1.1552
+              "precision": 0.0636,
+              "far": 0.9364,
+              "recall": 0.5987,
+              "fpr": 0.1768,
+              "pss": 0.4219,
+              "area_alerted_pct": 18.51,
+              "false_alarms_per_1000km2_day": 1.4866
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 24745,
+              "tp": 2683,
+              "fp": 22062,
+              "fn": 5929,
               "threshold": 0.1,
-              "precision": 0.128,
-              "far": 0.872,
-              "recall": 0.2119,
-              "fpr": 0.027,
-              "pss": 0.1849,
-              "area_alerted_pct": 3.04,
-              "false_alarms_per_1000km2_day": 0.2273
+              "precision": 0.1084,
+              "far": 0.8916,
+              "recall": 0.3115,
+              "fpr": 0.0514,
+              "pss": 0.2602,
+              "area_alerted_pct": 5.65,
+              "false_alarms_per_1000km2_day": 0.432
             },
             {
               "tier": "critico_20pct",
+              "alerts": 7686,
+              "tp": 1338,
+              "fp": 6348,
+              "fn": 7274,
               "threshold": 0.2,
-              "precision": 0.1775,
-              "far": 0.8225,
-              "recall": 0.1167,
-              "fpr": 0.0101,
-              "pss": 0.1065,
-              "area_alerted_pct": 1.21,
-              "false_alarms_per_1000km2_day": 0.0851
+              "precision": 0.1741,
+              "far": 0.8259,
+              "recall": 0.1554,
+              "fpr": 0.0148,
+              "pss": 0.1406,
+              "area_alerted_pct": 1.75,
+              "false_alarms_per_1000km2_day": 0.1243
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 1409,
+              "tp": 393,
+              "fp": 1016,
+              "fn": 8219,
               "threshold": 0.3,
-              "precision": 0.2827,
-              "far": 0.7173,
-              "recall": 0.0433,
-              "fpr": 0.0021,
-              "pss": 0.0412,
-              "area_alerted_pct": 0.28,
-              "false_alarms_per_1000km2_day": 0.0173
+              "precision": 0.2789,
+              "far": 0.7211,
+              "recall": 0.0456,
+              "fpr": 0.0024,
+              "pss": 0.0433,
+              "area_alerted_pct": 0.32,
+              "false_alarms_per_1000km2_day": 0.0199
             }
-          ]
+          ],
+          "n_evaluated": 438030
         },
         "FWI Van Wagner puro (sin IA)": {
-          "roc_auc": 0.6732,
-          "pr_auc": 0.0319,
-          "brier": 0.01796,
-          "brier_skill_vs_clim_pct": -2.75,
-          "hit_rate_topk": 0.0399,
-          "base_rate": 0.01836,
-          "pss": 0.2065,
-          "threshold_cal": 0.02546,
-          "tpr": 0.4131,
-          "fpr": 0.2066,
-          "far": 0.964,
-          "fnr": 0.5869,
-          "ece": 0.00338,
+          "roc_auc": 0.6688,
+          "pr_auc": 0.0337,
+          "brier": 0.01927,
+          "brier_skill_vs_clim_pct": -3.5,
+          "hit_rate_topk": 0.0419,
+          "base_rate": 0.01966,
+          "pss": 0.2465,
+          "threshold_cal": 0.02297,
+          "tpr": 0.6936,
+          "fpr": 0.4471,
+          "far": 0.9698,
+          "fnr": 0.3064,
+          "ece": 0.00611,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
-              "bin_hi": 0.0037,
-              "mean_pred": 0.0017,
-              "obs_freq": 0.00325,
-              "count": 40049
+              "bin_hi": 0.0057,
+              "mean_pred": 0.00079,
+              "obs_freq": 0.00071,
+              "count": 4200
             },
             {
-              "bin_lo": 0.0037,
-              "bin_hi": 0.0064,
-              "mean_pred": 0.0054,
-              "obs_freq": 0.00647,
-              "count": 38043
+              "bin_lo": 0.0057,
+              "bin_hi": 0.015,
+              "mean_pred": 0.00575,
+              "obs_freq": 0.00437,
+              "count": 54026
             },
             {
-              "bin_lo": 0.0064,
-              "bin_hi": 0.0116,
-              "mean_pred": 0.008,
-              "obs_freq": 0.00896,
-              "count": 41538
+              "bin_lo": 0.015,
+              "bin_hi": 0.018,
+              "mean_pred": 0.01529,
+              "obs_freq": 0.00976,
+              "count": 63440
             },
             {
-              "bin_lo": 0.0116,
-              "bin_hi": 0.0123,
-              "mean_pred": 0.01164,
-              "obs_freq": 0.0107,
-              "count": 44384
+              "bin_lo": 0.018,
+              "bin_hi": 0.0217,
+              "mean_pred": 0.01797,
+              "obs_freq": 0.01157,
+              "count": 42799
             },
             {
-              "bin_lo": 0.0123,
-              "bin_hi": 0.0134,
-              "mean_pred": 0.01229,
-              "obs_freq": 0.01362,
-              "count": 38184
+              "bin_lo": 0.0217,
+              "bin_hi": 0.0251,
+              "mean_pred": 0.02168,
+              "obs_freq": 0.01701,
+              "count": 75614
             },
             {
-              "bin_lo": 0.0134,
-              "bin_hi": 0.0164,
-              "mean_pred": 0.01337,
-              "obs_freq": 0.01795,
-              "count": 37881
+              "bin_lo": 0.0251,
+              "bin_hi": 0.0287,
+              "mean_pred": 0.02515,
+              "obs_freq": 0.01984,
+              "count": 41943
             },
             {
-              "bin_lo": 0.0164,
-              "bin_hi": 0.0218,
-              "mean_pred": 0.01715,
-              "obs_freq": 0.01871,
-              "count": 54365
+              "bin_lo": 0.0287,
+              "bin_hi": 0.0309,
+              "mean_pred": 0.02875,
+              "obs_freq": 0.02543,
+              "count": 60036
             },
             {
-              "bin_lo": 0.0218,
-              "bin_hi": 0.0255,
-              "mean_pred": 0.02202,
-              "obs_freq": 0.02488,
-              "count": 51412
+              "bin_lo": 0.0309,
+              "bin_hi": 0.0418,
+              "mean_pred": 0.03514,
+              "obs_freq": 0.0336,
+              "count": 51307
             },
             {
-              "bin_lo": 0.0255,
-              "bin_hi": 0.0344,
-              "mean_pred": 0.02905,
-              "obs_freq": 0.03246,
-              "count": 47509
-            },
-            {
-              "bin_lo": 0.0344,
+              "bin_lo": 0.0418,
               "bin_hi": 1.0,
-              "mean_pred": 0.05502,
-              "obs_freq": 0.03985,
+              "mean_pred": 0.06748,
+              "obs_freq": 0.04232,
               "count": 44665
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.02546,
-              "precision": 0.036,
-              "far": 0.964,
-              "recall": 0.4131,
-              "fpr": 0.2066,
-              "pss": 0.2065,
-              "area_alerted_pct": 21.04,
-              "false_alarms_per_1000km2_day": 1.7397
+              "alerts": 197952,
+              "tp": 5973,
+              "fp": 191979,
+              "fn": 2639,
+              "threshold": 0.02297,
+              "precision": 0.0302,
+              "far": 0.9698,
+              "recall": 0.6936,
+              "fpr": 0.4471,
+              "pss": 0.2465,
+              "area_alerted_pct": 45.19,
+              "false_alarms_per_1000km2_day": 3.7588
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 41869,
+              "tp": 1804,
+              "fp": 40065,
+              "fn": 6808,
               "threshold": 0.05,
-              "precision": 0.0375,
-              "far": 0.9625,
-              "recall": 0.0951,
-              "fpr": 0.0457,
-              "pss": 0.0494,
-              "area_alerted_pct": 4.66,
-              "false_alarms_per_1000km2_day": 0.3849
+              "precision": 0.0431,
+              "far": 0.9569,
+              "recall": 0.2095,
+              "fpr": 0.0933,
+              "pss": 0.1162,
+              "area_alerted_pct": 9.56,
+              "false_alarms_per_1000km2_day": 0.7844
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 2557,
+              "tp": 128,
+              "fp": 2429,
+              "fn": 8484,
               "threshold": 0.1,
-              "precision": 0.0407,
-              "far": 0.9593,
-              "recall": 0.0129,
+              "precision": 0.0501,
+              "far": 0.9499,
+              "recall": 0.0149,
               "fpr": 0.0057,
-              "pss": 0.0072,
+              "pss": 0.0092,
               "area_alerted_pct": 0.58,
-              "false_alarms_per_1000km2_day": 0.048
+              "false_alarms_per_1000km2_day": 0.0476
             },
             {
               "tier": "critico_20pct",
+              "alerts": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 8612,
               "threshold": 0.2,
               "precision": 0.0,
               "far": 0.0,
@@ -3093,6 +3174,10 @@
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 8612,
               "threshold": 0.3,
               "precision": 0.0,
               "far": 0.0,
@@ -3101,836 +3186,948 @@
               "pss": 0.0,
               "area_alerted_pct": 0.0,
               "false_alarms_per_1000km2_day": 0.0
-            }
-          ]
-        },
-        "IGNIS diario · sin clima": {
-          "roc_auc": 0.8065,
-          "pr_auc": 0.1127,
-          "brier": 0.01713,
-          "brier_skill_vs_clim_pct": 2.03,
-          "hit_rate_topk": 0.19,
-          "base_rate": 0.01836,
-          "pss": 0.4505,
-          "threshold_cal": 0.02546,
-          "tpr": 0.6527,
-          "fpr": 0.2022,
-          "far": 0.9431,
-          "fnr": 0.3473,
-          "ece": 0.00287,
-          "reliability_curve": [
-            {
-              "bin_lo": 0.0,
-              "bin_hi": 0.0031,
-              "mean_pred": 0.0004,
-              "obs_freq": 0.00149,
-              "count": 41717
-            },
-            {
-              "bin_lo": 0.0031,
-              "bin_hi": 0.0033,
-              "mean_pred": 0.00306,
-              "obs_freq": 0.00383,
-              "count": 3395
-            },
-            {
-              "bin_lo": 0.0033,
-              "bin_hi": 0.0035,
-              "mean_pred": 0.00327,
-              "obs_freq": 0.00316,
-              "count": 82071
-            },
-            {
-              "bin_lo": 0.0035,
-              "bin_hi": 0.0061,
-              "mean_pred": 0.00392,
-              "obs_freq": 0.00504,
-              "count": 40245
-            },
-            {
-              "bin_lo": 0.0061,
-              "bin_hi": 0.0096,
-              "mean_pred": 0.00722,
-              "obs_freq": 0.00709,
-              "count": 46390
-            },
-            {
-              "bin_lo": 0.0096,
-              "bin_hi": 0.0119,
-              "mean_pred": 0.0101,
-              "obs_freq": 0.0093,
-              "count": 30203
-            },
-            {
-              "bin_lo": 0.0119,
-              "bin_hi": 0.0165,
-              "mean_pred": 0.01287,
-              "obs_freq": 0.01368,
-              "count": 61895
-            },
-            {
-              "bin_lo": 0.0165,
-              "bin_hi": 0.0263,
-              "mean_pred": 0.01951,
-              "obs_freq": 0.02001,
-              "count": 39927
-            },
-            {
-              "bin_lo": 0.0263,
-              "bin_hi": 0.0508,
-              "mean_pred": 0.0333,
-              "obs_freq": 0.03001,
-              "count": 46121
-            },
-            {
-              "bin_lo": 0.0508,
-              "bin_hi": 1.0,
-              "mean_pred": 0.10347,
-              "obs_freq": 0.08388,
-              "count": 46066
             }
           ],
-          "alert_policy_tiers": [
-            {
-              "tier": "pss_optimal",
-              "threshold": 0.02546,
-              "precision": 0.0569,
-              "far": 0.9431,
-              "recall": 0.6527,
-              "fpr": 0.2022,
-              "pss": 0.4505,
-              "area_alerted_pct": 21.05,
-              "false_alarms_per_1000km2_day": 1.7022
-            },
-            {
-              "tier": "vigilancia_5pct",
-              "threshold": 0.05,
-              "precision": 0.0839,
-              "far": 0.9161,
-              "recall": 0.4805,
-              "fpr": 0.0981,
-              "pss": 0.3824,
-              "area_alerted_pct": 10.52,
-              "false_alarms_per_1000km2_day": 0.8263
-            },
-            {
-              "tier": "advertencia_10pct",
-              "threshold": 0.1,
-              "precision": 0.1555,
-              "far": 0.8445,
-              "recall": 0.2488,
-              "fpr": 0.0253,
-              "pss": 0.2236,
-              "area_alerted_pct": 2.94,
-              "false_alarms_per_1000km2_day": 0.2127
-            },
-            {
-              "tier": "critico_20pct",
-              "threshold": 0.2,
-              "precision": 0.2474,
-              "far": 0.7526,
-              "recall": 0.1055,
-              "fpr": 0.006,
-              "pss": 0.0995,
-              "area_alerted_pct": 0.78,
-              "false_alarms_per_1000km2_day": 0.0505
-            },
-            {
-              "tier": "extremo_30pct",
-              "threshold": 0.3,
-              "precision": 0.3384,
-              "far": 0.6616,
-              "recall": 0.0468,
-              "fpr": 0.0017,
-              "pss": 0.0451,
-              "area_alerted_pct": 0.25,
-              "false_alarms_per_1000km2_day": 0.0144
-            }
-          ]
+          "n_evaluated": 438030
         },
-        "IGNIS diario · FIRMS + NASA POWER (FWI)": {
-          "roc_auc": 0.813,
-          "pr_auc": 0.1147,
-          "brier": 0.01704,
-          "brier_skill_vs_clim_pct": 2.53,
-          "hit_rate_topk": 0.1898,
-          "base_rate": 0.01836,
-          "pss": 0.4494,
-          "threshold_cal": 0.02546,
-          "tpr": 0.6222,
-          "fpr": 0.1727,
-          "far": 0.9369,
-          "fnr": 0.3778,
-          "ece": 0.0015,
+        "IGNIS diario · sin clima": {
+          "roc_auc": 0.8129,
+          "pr_auc": 0.1218,
+          "brier": 0.01822,
+          "brier_skill_vs_clim_pct": 2.12,
+          "hit_rate_topk": 0.1977,
+          "base_rate": 0.01966,
+          "pss": 0.4397,
+          "threshold_cal": 0.01548,
+          "tpr": 0.8459,
+          "fpr": 0.4062,
+          "far": 0.9599,
+          "fnr": 0.1541,
+          "ece": 0.00394,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
-              "bin_hi": 0.0021,
-              "mean_pred": 0.00041,
-              "obs_freq": 0.00135,
-              "count": 42192
+              "bin_hi": 0.0039,
+              "mean_pred": 0.00072,
+              "obs_freq": 0.00141,
+              "count": 41796
             },
             {
-              "bin_lo": 0.0021,
-              "bin_hi": 0.0031,
-              "mean_pred": 0.00223,
-              "obs_freq": 0.00391,
-              "count": 10989
+              "bin_lo": 0.0039,
+              "bin_hi": 0.0047,
+              "mean_pred": 0.00427,
+              "obs_freq": 0.00242,
+              "count": 10736
             },
             {
-              "bin_lo": 0.0031,
+              "bin_lo": 0.0047,
               "bin_hi": 0.0048,
-              "mean_pred": 0.00323,
-              "obs_freq": 0.00352,
-              "count": 119871
+              "mean_pred": 0.0047,
+              "obs_freq": 0.00334,
+              "count": 71816
             },
             {
               "bin_lo": 0.0048,
-              "bin_hi": 0.0068,
-              "mean_pred": 0.00526,
-              "obs_freq": 0.00596,
-              "count": 25000
+              "bin_hi": 0.005,
+              "mean_pred": 0.0048,
+              "obs_freq": 0.0055,
+              "count": 10905
             },
             {
-              "bin_lo": 0.0068,
-              "bin_hi": 0.0125,
-              "mean_pred": 0.00816,
-              "obs_freq": 0.00961,
-              "count": 63997
+              "bin_lo": 0.005,
+              "bin_hi": 0.0095,
+              "mean_pred": 0.00597,
+              "obs_freq": 0.00608,
+              "count": 74495
             },
             {
-              "bin_lo": 0.0125,
-              "bin_hi": 0.0149,
-              "mean_pred": 0.01267,
-              "obs_freq": 0.01414,
-              "count": 43987
+              "bin_lo": 0.0095,
+              "bin_hi": 0.0172,
+              "mean_pred": 0.00968,
+              "obs_freq": 0.0105,
+              "count": 46575
             },
             {
-              "bin_lo": 0.0149,
-              "bin_hi": 0.0234,
-              "mean_pred": 0.01734,
-              "obs_freq": 0.01949,
-              "count": 37054
+              "bin_lo": 0.0172,
+              "bin_hi": 0.0175,
+              "mean_pred": 0.0172,
+              "obs_freq": 0.01464,
+              "count": 36673
             },
             {
-              "bin_lo": 0.0234,
-              "bin_hi": 0.043,
-              "mean_pred": 0.02954,
-              "obs_freq": 0.02872,
-              "count": 41578
+              "bin_lo": 0.0175,
+              "bin_hi": 0.0276,
+              "mean_pred": 0.01947,
+              "obs_freq": 0.01646,
+              "count": 29589
             },
             {
-              "bin_lo": 0.043,
+              "bin_lo": 0.0276,
+              "bin_hi": 0.0619,
+              "mean_pred": 0.03498,
+              "obs_freq": 0.02919,
+              "count": 71440
+            },
+            {
+              "bin_lo": 0.0619,
               "bin_hi": 1.0,
-              "mean_pred": 0.08422,
-              "obs_freq": 0.07903,
-              "count": 53362
+              "mean_pred": 0.11605,
+              "obs_freq": 0.0949,
+              "count": 44005
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.02546,
-              "precision": 0.0631,
-              "far": 0.9369,
-              "recall": 0.6222,
-              "fpr": 0.1727,
-              "pss": 0.4494,
-              "area_alerted_pct": 18.1,
-              "false_alarms_per_1000km2_day": 1.4543
+              "alerts": 181707,
+              "tp": 7285,
+              "fp": 174422,
+              "fn": 1327,
+              "threshold": 0.01548,
+              "precision": 0.0401,
+              "far": 0.9599,
+              "recall": 0.8459,
+              "fpr": 0.4062,
+              "pss": 0.4397,
+              "area_alerted_pct": 41.48,
+              "false_alarms_per_1000km2_day": 3.4151
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 47495,
+              "tp": 4334,
+              "fp": 43161,
+              "fn": 4278,
               "threshold": 0.05,
-              "precision": 0.0971,
-              "far": 0.9029,
-              "recall": 0.4373,
-              "fpr": 0.076,
-              "pss": 0.3613,
-              "area_alerted_pct": 8.26,
-              "false_alarms_per_1000km2_day": 0.6398
+              "precision": 0.0913,
+              "far": 0.9087,
+              "recall": 0.5033,
+              "fpr": 0.1005,
+              "pss": 0.4027,
+              "area_alerted_pct": 10.84,
+              "false_alarms_per_1000km2_day": 0.8451
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 17841,
+              "tp": 2605,
+              "fp": 15236,
+              "fn": 6007,
               "threshold": 0.1,
-              "precision": 0.1705,
-              "far": 0.8295,
-              "recall": 0.2242,
-              "fpr": 0.0204,
-              "pss": 0.2038,
-              "area_alerted_pct": 2.41,
-              "false_alarms_per_1000km2_day": 0.1718
+              "precision": 0.146,
+              "far": 0.854,
+              "recall": 0.3025,
+              "fpr": 0.0355,
+              "pss": 0.267,
+              "area_alerted_pct": 4.07,
+              "false_alarms_per_1000km2_day": 0.2983
             },
             {
               "tier": "critico_20pct",
+              "alerts": 4908,
+              "tp": 1158,
+              "fp": 3750,
+              "fn": 7454,
               "threshold": 0.2,
-              "precision": 0.2931,
-              "far": 0.7069,
-              "recall": 0.0793,
-              "fpr": 0.0036,
-              "pss": 0.0758,
-              "area_alerted_pct": 0.5,
-              "false_alarms_per_1000km2_day": 0.0301
+              "precision": 0.2359,
+              "far": 0.7641,
+              "recall": 0.1345,
+              "fpr": 0.0087,
+              "pss": 0.1257,
+              "area_alerted_pct": 1.12,
+              "false_alarms_per_1000km2_day": 0.0734
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 2319,
+              "tp": 691,
+              "fp": 1628,
+              "fn": 7921,
               "threshold": 0.3,
-              "precision": 0.3566,
-              "far": 0.6434,
-              "recall": 0.0433,
-              "fpr": 0.0015,
-              "pss": 0.0418,
-              "area_alerted_pct": 0.22,
-              "false_alarms_per_1000km2_day": 0.0123
+              "precision": 0.298,
+              "far": 0.702,
+              "recall": 0.0802,
+              "fpr": 0.0038,
+              "pss": 0.0764,
+              "area_alerted_pct": 0.53,
+              "false_alarms_per_1000km2_day": 0.0319
             }
-          ]
+          ],
+          "n_evaluated": 438030
+        },
+        "IGNIS diario · FIRMS + NASA POWER (FWI)": {
+          "roc_auc": 0.8196,
+          "pr_auc": 0.1245,
+          "brier": 0.01814,
+          "brier_skill_vs_clim_pct": 2.57,
+          "hit_rate_topk": 0.2,
+          "base_rate": 0.01966,
+          "pss": 0.4797,
+          "threshold_cal": 0.01548,
+          "tpr": 0.7781,
+          "fpr": 0.2984,
+          "far": 0.9503,
+          "fnr": 0.2219,
+          "ece": 0.00218,
+          "reliability_curve": [
+            {
+              "bin_lo": 0.0,
+              "bin_hi": 0.0036,
+              "mean_pred": 0.00082,
+              "obs_freq": 0.0013,
+              "count": 42368
+            },
+            {
+              "bin_lo": 0.0036,
+              "bin_hi": 0.0067,
+              "mean_pred": 0.00415,
+              "obs_freq": 0.00361,
+              "count": 132678
+            },
+            {
+              "bin_lo": 0.0067,
+              "bin_hi": 0.0093,
+              "mean_pred": 0.0067,
+              "obs_freq": 0.00665,
+              "count": 36235
+            },
+            {
+              "bin_lo": 0.0093,
+              "bin_hi": 0.0097,
+              "mean_pred": 0.0093,
+              "obs_freq": 0.00975,
+              "count": 22970
+            },
+            {
+              "bin_lo": 0.0097,
+              "bin_hi": 0.0166,
+              "mean_pred": 0.01236,
+              "obs_freq": 0.01323,
+              "count": 68929
+            },
+            {
+              "bin_lo": 0.0166,
+              "bin_hi": 0.0299,
+              "mean_pred": 0.02106,
+              "obs_freq": 0.02035,
+              "count": 38231
+            },
+            {
+              "bin_lo": 0.0299,
+              "bin_hi": 0.0529,
+              "mean_pred": 0.03852,
+              "obs_freq": 0.03162,
+              "count": 52467
+            },
+            {
+              "bin_lo": 0.0529,
+              "bin_hi": 1.0,
+              "mean_pred": 0.10566,
+              "obs_freq": 0.09658,
+              "count": 44152
+            }
+          ],
+          "alert_policy_tiers": [
+            {
+              "tier": "pss_optimal",
+              "alerts": 134856,
+              "tp": 6701,
+              "fp": 128155,
+              "fn": 1911,
+              "threshold": 0.01548,
+              "precision": 0.0497,
+              "far": 0.9503,
+              "recall": 0.7781,
+              "fpr": 0.2984,
+              "pss": 0.4797,
+              "area_alerted_pct": 30.79,
+              "false_alarms_per_1000km2_day": 2.5092
+            },
+            {
+              "tier": "vigilancia_5pct",
+              "alerts": 44153,
+              "tp": 4264,
+              "fp": 39889,
+              "fn": 4348,
+              "threshold": 0.05,
+              "precision": 0.0966,
+              "far": 0.9034,
+              "recall": 0.4951,
+              "fpr": 0.0929,
+              "pss": 0.4022,
+              "area_alerted_pct": 10.08,
+              "false_alarms_per_1000km2_day": 0.781
+            },
+            {
+              "tier": "advertencia_10pct",
+              "alerts": 13240,
+              "tp": 2251,
+              "fp": 10989,
+              "fn": 6361,
+              "threshold": 0.1,
+              "precision": 0.17,
+              "far": 0.83,
+              "recall": 0.2614,
+              "fpr": 0.0256,
+              "pss": 0.2358,
+              "area_alerted_pct": 3.02,
+              "false_alarms_per_1000km2_day": 0.2152
+            },
+            {
+              "tier": "critico_20pct",
+              "alerts": 3946,
+              "tp": 1018,
+              "fp": 2928,
+              "fn": 7594,
+              "threshold": 0.2,
+              "precision": 0.258,
+              "far": 0.742,
+              "recall": 0.1182,
+              "fpr": 0.0068,
+              "pss": 0.1114,
+              "area_alerted_pct": 0.9,
+              "false_alarms_per_1000km2_day": 0.0573
+            },
+            {
+              "tier": "extremo_30pct",
+              "alerts": 630,
+              "tp": 255,
+              "fp": 375,
+              "fn": 8357,
+              "threshold": 0.3,
+              "precision": 0.4048,
+              "far": 0.5952,
+              "recall": 0.0296,
+              "fpr": 0.0009,
+              "pss": 0.0287,
+              "area_alerted_pct": 0.14,
+              "false_alarms_per_1000km2_day": 0.0073
+            }
+          ],
+          "n_evaluated": 438030,
+          "national_map_top30": {
+            "limit_per_day": 30,
+            "reviewed": 28260,
+            "hits": 2624,
+            "precision": 0.09285,
+            "recall": 0.30469
+          }
         }
       },
       "+48h": {
         "Climatología celda×mes": {
-          "roc_auc": 0.764,
-          "pr_auc": 0.1376,
-          "brier": 0.03163,
-          "brier_skill_vs_clim_pct": 0.0,
-          "hit_rate_topk": 0.1976,
-          "base_rate": 0.03432,
-          "pss": 0.3835,
+          "roc_auc": 0.7714,
+          "pr_auc": 0.1493,
+          "brier": 0.03338,
+          "brier_skill_vs_clim_pct": -0.0,
+          "hit_rate_topk": 0.2155,
+          "base_rate": 0.0366,
+          "pss": 0.3979,
           "threshold_cal": 0.04293,
-          "tpr": 0.6805,
-          "fpr": 0.297,
-          "far": 0.9247,
-          "fnr": 0.3195,
-          "ece": 0.00981,
+          "tpr": 0.6947,
+          "fpr": 0.2968,
+          "far": 0.9183,
+          "fnr": 0.3053,
+          "ece": 0.00874,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
               "bin_hi": 0.0059,
               "mean_pred": 0.0,
-              "obs_freq": 0.00518,
-              "count": 66742
+              "obs_freq": 0.00511,
+              "count": 67289
             },
             {
               "bin_lo": 0.0059,
               "bin_hi": 0.0117,
               "mean_pred": 0.006,
-              "obs_freq": 0.00885,
-              "count": 51080
+              "obs_freq": 0.00889,
+              "count": 50402
             },
             {
               "bin_lo": 0.0117,
               "bin_hi": 0.0175,
               "mean_pred": 0.01198,
-              "obs_freq": 0.0129,
-              "count": 47986
+              "obs_freq": 0.01396,
+              "count": 48982
             },
             {
               "bin_lo": 0.0175,
-              "bin_hi": 0.0241,
-              "mean_pred": 0.01937,
-              "obs_freq": 0.01902,
-              "count": 52530
+              "bin_hi": 0.0233,
+              "mean_pred": 0.01793,
+              "obs_freq": 0.01785,
+              "count": 38145
             },
             {
-              "bin_lo": 0.0241,
+              "bin_lo": 0.0233,
               "bin_hi": 0.0308,
-              "mean_pred": 0.02742,
-              "obs_freq": 0.02567,
-              "count": 40518
+              "mean_pred": 0.02631,
+              "obs_freq": 0.02545,
+              "count": 54154
             },
             {
               "bin_lo": 0.0308,
               "bin_hi": 0.0464,
-              "mean_pred": 0.03738,
-              "obs_freq": 0.03148,
-              "count": 46284
+              "mean_pred": 0.03732,
+              "obs_freq": 0.0321,
+              "count": 45641
             },
             {
               "bin_lo": 0.0464,
               "bin_hi": 0.0635,
-              "mean_pred": 0.05279,
-              "obs_freq": 0.03892,
-              "count": 42596
+              "mean_pred": 0.05291,
+              "obs_freq": 0.04155,
+              "count": 42937
             },
             {
               "bin_lo": 0.0635,
               "bin_hi": 0.1028,
-              "mean_pred": 0.07832,
-              "obs_freq": 0.05709,
-              "count": 45982
+              "mean_pred": 0.07835,
+              "obs_freq": 0.06155,
+              "count": 44583
             },
             {
               "bin_lo": 0.1028,
               "bin_hi": 1.0,
-              "mean_pred": 0.17443,
-              "obs_freq": 0.13278,
-              "count": 43847
+              "mean_pred": 0.18046,
+              "obs_freq": 0.14278,
+              "count": 45432
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
+              "alerts": 136241,
+              "tp": 11126,
+              "fp": 125115,
+              "fn": 4889,
               "threshold": 0.04293,
-              "precision": 0.0753,
-              "far": 0.9247,
-              "recall": 0.6805,
-              "fpr": 0.297,
-              "pss": 0.3835,
-              "area_alerted_pct": 31.02,
-              "false_alarms_per_1000km2_day": 2.4597
+              "precision": 0.0817,
+              "far": 0.9183,
+              "recall": 0.6947,
+              "fpr": 0.2968,
+              "pss": 0.3979,
+              "area_alerted_pct": 31.14,
+              "false_alarms_per_1000km2_day": 2.4523
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 118188,
+              "tp": 10503,
+              "fp": 107685,
+              "fn": 5512,
               "threshold": 0.05,
-              "precision": 0.0819,
-              "far": 0.9181,
-              "recall": 0.6374,
-              "fpr": 0.254,
-              "pss": 0.3834,
-              "area_alerted_pct": 26.71,
-              "false_alarms_per_1000km2_day": 2.1035
+              "precision": 0.0889,
+              "far": 0.9111,
+              "recall": 0.6558,
+              "fpr": 0.2555,
+              "pss": 0.4004,
+              "area_alerted_pct": 27.01,
+              "false_alarms_per_1000km2_day": 2.1106
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 47057,
+              "tp": 6613,
+              "fp": 40444,
+              "fn": 9402,
               "threshold": 0.1,
-              "precision": 0.1305,
-              "far": 0.8695,
-              "recall": 0.3966,
-              "fpr": 0.094,
-              "pss": 0.3026,
-              "area_alerted_pct": 10.43,
-              "false_alarms_per_1000km2_day": 0.7781
+              "precision": 0.1405,
+              "far": 0.8595,
+              "recall": 0.4129,
+              "fpr": 0.0959,
+              "pss": 0.317,
+              "area_alerted_pct": 10.75,
+              "false_alarms_per_1000km2_day": 0.7927
             },
             {
               "tier": "critico_20pct",
+              "alerts": 13208,
+              "tp": 2997,
+              "fp": 10211,
+              "fn": 13018,
               "threshold": 0.2,
-              "precision": 0.2198,
-              "far": 0.7802,
-              "recall": 0.1583,
-              "fpr": 0.02,
-              "pss": 0.1383,
-              "area_alerted_pct": 2.47,
-              "false_alarms_per_1000km2_day": 0.1653
+              "precision": 0.2269,
+              "far": 0.7731,
+              "recall": 0.1871,
+              "fpr": 0.0242,
+              "pss": 0.1629,
+              "area_alerted_pct": 3.02,
+              "false_alarms_per_1000km2_day": 0.2001
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 3690,
+              "tp": 1204,
+              "fp": 2486,
+              "fn": 14811,
               "threshold": 0.3,
-              "precision": 0.347,
-              "far": 0.653,
-              "recall": 0.0642,
-              "fpr": 0.0043,
-              "pss": 0.0599,
-              "area_alerted_pct": 0.63,
-              "false_alarms_per_1000km2_day": 0.0356
+              "precision": 0.3263,
+              "far": 0.6737,
+              "recall": 0.0752,
+              "fpr": 0.0059,
+              "pss": 0.0693,
+              "area_alerted_pct": 0.84,
+              "false_alarms_per_1000km2_day": 0.0487
             }
-          ]
+          ],
+          "n_evaluated": 437565
         },
         "Persistencia 7 días (sin calibrar)": {
-          "roc_auc": 0.7763,
-          "pr_auc": 0.1447,
-          "brier": 0.0494,
-          "brier_skill_vs_clim_pct": -56.19,
-          "hit_rate_topk": 0.2083,
-          "base_rate": 0.03432,
-          "pss": 0.4149,
-          "threshold_cal": 0.02454,
-          "tpr": 0.7105,
-          "fpr": 0.2957,
-          "far": 0.9213,
-          "fnr": 0.2895,
-          "ece": 0.04863,
+          "roc_auc": 0.7841,
+          "pr_auc": 0.1586,
+          "brier": 0.05131,
+          "brier_skill_vs_clim_pct": -53.74,
+          "hit_rate_topk": 0.2245,
+          "base_rate": 0.0366,
+          "pss": 0.424,
+          "threshold_cal": 0.02297,
+          "tpr": 0.7479,
+          "fpr": 0.3239,
+          "far": 0.9194,
+          "fnr": 0.2521,
+          "ece": 0.04822,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
               "bin_hi": 0.0029,
               "mean_pred": 0.0,
-              "obs_freq": 0.00457,
-              "count": 65626
+              "obs_freq": 0.00456,
+              "count": 66180
             },
             {
               "bin_lo": 0.0029,
               "bin_hi": 0.0058,
               "mean_pred": 0.003,
-              "obs_freq": 0.00779,
-              "count": 49670
+              "obs_freq": 0.00776,
+              "count": 48977
             },
             {
               "bin_lo": 0.0058,
               "bin_hi": 0.0088,
               "mean_pred": 0.00599,
-              "obs_freq": 0.0117,
-              "count": 46001
+              "obs_freq": 0.01247,
+              "count": 46830
             },
             {
               "bin_lo": 0.0088,
               "bin_hi": 0.012,
               "mean_pred": 0.00968,
-              "obs_freq": 0.01642,
-              "count": 49398
+              "obs_freq": 0.01676,
+              "count": 49099
             },
             {
               "bin_lo": 0.012,
               "bin_hi": 0.0174,
-              "mean_pred": 0.01396,
-              "obs_freq": 0.022,
-              "count": 43276
+              "mean_pred": 0.01394,
+              "obs_freq": 0.02228,
+              "count": 42770
             },
             {
               "bin_lo": 0.0174,
               "bin_hi": 0.026,
-              "mean_pred": 0.02055,
-              "obs_freq": 0.02875,
-              "count": 51056
+              "mean_pred": 0.02048,
+              "obs_freq": 0.02955,
+              "count": 49439
             },
             {
               "bin_lo": 0.026,
-              "bin_hi": 0.0402,
-              "mean_pred": 0.03149,
-              "obs_freq": 0.04025,
-              "count": 43477
+              "bin_hi": 0.0409,
+              "mean_pred": 0.03184,
+              "obs_freq": 0.04259,
+              "count": 46280
             },
             {
-              "bin_lo": 0.0402,
-              "bin_hi": 0.1912,
-              "mean_pred": 0.06587,
-              "obs_freq": 0.07578,
-              "count": 45273
+              "bin_lo": 0.0409,
+              "bin_hi": 0.5029,
+              "mean_pred": 0.08169,
+              "obs_freq": 0.08184,
+              "count": 43514
             },
             {
-              "bin_lo": 0.1912,
+              "bin_lo": 0.5029,
               "bin_hi": 1.0,
-              "mean_pred": 0.54655,
-              "obs_freq": 0.12289,
-              "count": 43788
+              "mean_pred": 0.55278,
+              "obs_freq": 0.13445,
+              "count": 44476
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.02454,
-              "precision": 0.0787,
-              "far": 0.9213,
-              "recall": 0.7105,
-              "fpr": 0.2957,
-              "pss": 0.4149,
-              "area_alerted_pct": 30.99,
-              "false_alarms_per_1000km2_day": 2.449
+              "alerts": 148517,
+              "tp": 11977,
+              "fp": 136540,
+              "fn": 4038,
+              "threshold": 0.02297,
+              "precision": 0.0806,
+              "far": 0.9194,
+              "recall": 0.7479,
+              "fpr": 0.3239,
+              "pss": 0.424,
+              "area_alerted_pct": 33.94,
+              "false_alarms_per_1000km2_day": 2.6762
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 75980,
+              "tp": 8955,
+              "fp": 67025,
+              "fn": 7060,
               "threshold": 0.05,
-              "precision": 0.1093,
-              "far": 0.8907,
-              "recall": 0.5371,
-              "fpr": 0.1556,
-              "pss": 0.3815,
-              "area_alerted_pct": 16.87,
-              "false_alarms_per_1000km2_day": 1.2888
+              "precision": 0.1179,
+              "far": 0.8821,
+              "recall": 0.5592,
+              "fpr": 0.159,
+              "pss": 0.4002,
+              "area_alerted_pct": 17.36,
+              "false_alarms_per_1000km2_day": 1.3137
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 52005,
+              "tp": 7002,
+              "fp": 45003,
+              "fn": 9013,
               "threshold": 0.1,
-              "precision": 0.1241,
-              "far": 0.8759,
-              "recall": 0.4036,
-              "fpr": 0.1012,
-              "pss": 0.3024,
-              "area_alerted_pct": 11.16,
-              "false_alarms_per_1000km2_day": 0.8382
+              "precision": 0.1346,
+              "far": 0.8654,
+              "recall": 0.4372,
+              "fpr": 0.1068,
+              "pss": 0.3305,
+              "area_alerted_pct": 11.89,
+              "false_alarms_per_1000km2_day": 0.8821
             },
             {
               "tier": "critico_20pct",
+              "alerts": 45874,
+              "tp": 6112,
+              "fp": 39762,
+              "fn": 9903,
               "threshold": 0.2,
-              "precision": 0.1226,
-              "far": 0.8774,
-              "recall": 0.3567,
-              "fpr": 0.0908,
-              "pss": 0.266,
-              "area_alerted_pct": 9.99,
-              "false_alarms_per_1000km2_day": 0.7516
+              "precision": 0.1332,
+              "far": 0.8668,
+              "recall": 0.3816,
+              "fpr": 0.0943,
+              "pss": 0.2873,
+              "area_alerted_pct": 10.48,
+              "false_alarms_per_1000km2_day": 0.7793
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 45606,
+              "tp": 6027,
+              "fp": 39579,
+              "fn": 9988,
               "threshold": 0.3,
-              "precision": 0.1213,
-              "far": 0.8787,
-              "recall": 0.3512,
-              "fpr": 0.0904,
-              "pss": 0.2608,
-              "area_alerted_pct": 9.93,
-              "false_alarms_per_1000km2_day": 0.7485
+              "precision": 0.1322,
+              "far": 0.8678,
+              "recall": 0.3763,
+              "fpr": 0.0939,
+              "pss": 0.2824,
+              "area_alerted_pct": 10.42,
+              "false_alarms_per_1000km2_day": 0.7758
             }
-          ]
+          ],
+          "n_evaluated": 437565
         },
         "Persistencia 7 días (calibrada)": {
-          "roc_auc": 0.7769,
-          "pr_auc": 0.1377,
-          "brier": 0.03171,
-          "brier_skill_vs_clim_pct": -0.27,
-          "hit_rate_topk": 0.2081,
-          "base_rate": 0.03432,
-          "pss": 0.4149,
-          "threshold_cal": 0.03794,
-          "tpr": 0.7105,
-          "fpr": 0.2957,
-          "far": 0.9213,
-          "fnr": 0.2895,
-          "ece": 0.01022,
+          "roc_auc": 0.7848,
+          "pr_auc": 0.1508,
+          "brier": 0.03389,
+          "brier_skill_vs_clim_pct": -1.55,
+          "hit_rate_topk": 0.2227,
+          "base_rate": 0.0366,
+          "pss": 0.4228,
+          "threshold_cal": 0.04792,
+          "tpr": 0.7535,
+          "fpr": 0.3307,
+          "far": 0.9203,
+          "fnr": 0.2465,
+          "ece": 0.01917,
           "reliability_curve": [
-            {
-              "bin_lo": 0.005,
-              "bin_hi": 0.0071,
-              "mean_pred": 0.00497,
-              "obs_freq": 0.00457,
-              "count": 65626
-            },
             {
               "bin_lo": 0.0071,
               "bin_hi": 0.0118,
-              "mean_pred": 0.00733,
-              "obs_freq": 0.0077,
-              "count": 45868
+              "mean_pred": 0.00706,
+              "obs_freq": 0.00456,
+              "count": 66180
             },
             {
               "bin_lo": 0.0118,
-              "bin_hi": 0.0164,
-              "mean_pred": 0.01217,
-              "obs_freq": 0.01117,
-              "count": 46293
+              "bin_hi": 0.0166,
+              "mean_pred": 0.01197,
+              "obs_freq": 0.00776,
+              "count": 48977
             },
             {
-              "bin_lo": 0.0164,
-              "bin_hi": 0.0173,
-              "mean_pred": 0.01636,
-              "obs_freq": 0.01538,
-              "count": 33605
+              "bin_lo": 0.0166,
+              "bin_hi": 0.0207,
+              "mean_pred": 0.01659,
+              "obs_freq": 0.01216,
+              "count": 43497
             },
             {
-              "bin_lo": 0.0173,
-              "bin_hi": 0.0319,
-              "mean_pred": 0.02032,
-              "obs_freq": 0.02042,
-              "count": 56650
+              "bin_lo": 0.0207,
+              "bin_hi": 0.0459,
+              "mean_pred": 0.02436,
+              "obs_freq": 0.01898,
+              "count": 92979
             },
             {
-              "bin_lo": 0.0319,
-              "bin_hi": 0.0476,
-              "mean_pred": 0.03374,
-              "obs_freq": 0.02788,
-              "count": 53906
+              "bin_lo": 0.0459,
+              "bin_hi": 0.0663,
+              "mean_pred": 0.0477,
+              "obs_freq": 0.0291,
+              "count": 50518
             },
             {
-              "bin_lo": 0.0476,
-              "bin_hi": 0.0625,
-              "mean_pred": 0.0515,
-              "obs_freq": 0.04025,
-              "count": 43202
+              "bin_lo": 0.0663,
+              "bin_hi": 0.0874,
+              "mean_pred": 0.07018,
+              "obs_freq": 0.04199,
+              "count": 44730
             },
             {
-              "bin_lo": 0.0625,
-              "bin_hi": 0.1108,
-              "mean_pred": 0.07392,
-              "obs_freq": 0.05341,
-              "count": 29376
+              "bin_lo": 0.0874,
+              "bin_hi": 0.1333,
+              "mean_pred": 0.10218,
+              "obs_freq": 0.06011,
+              "count": 30176
             },
             {
-              "bin_lo": 0.1108,
+              "bin_lo": 0.1333,
               "bin_hi": 1.0,
-              "mean_pred": 0.16341,
-              "obs_freq": 0.1168,
-              "count": 63039
+              "mean_pred": 0.19389,
+              "obs_freq": 0.13018,
+              "count": 60508
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.03794,
-              "precision": 0.0787,
-              "far": 0.9213,
-              "recall": 0.7105,
-              "fpr": 0.2957,
-              "pss": 0.4149,
-              "area_alerted_pct": 30.99,
-              "false_alarms_per_1000km2_day": 2.449
+              "alerts": 151453,
+              "tp": 12067,
+              "fp": 139386,
+              "fn": 3948,
+              "threshold": 0.04792,
+              "precision": 0.0797,
+              "far": 0.9203,
+              "recall": 0.7535,
+              "fpr": 0.3307,
+              "pss": 0.4228,
+              "area_alerted_pct": 34.61,
+              "false_alarms_per_1000km2_day": 2.732
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 151453,
+              "tp": 12067,
+              "fp": 139386,
+              "fn": 3948,
               "threshold": 0.05,
-              "precision": 0.0858,
-              "far": 0.9142,
-              "recall": 0.6631,
-              "fpr": 0.2511,
-              "pss": 0.412,
-              "area_alerted_pct": 26.53,
-              "false_alarms_per_1000km2_day": 2.0797
+              "precision": 0.0797,
+              "far": 0.9203,
+              "recall": 0.7535,
+              "fpr": 0.3307,
+              "pss": 0.4228,
+              "area_alerted_pct": 34.61,
+              "false_alarms_per_1000km2_day": 2.732
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 79549,
+              "tp": 9115,
+              "fp": 70434,
+              "fn": 6900,
               "threshold": 0.1,
-              "precision": 0.1168,
-              "far": 0.8832,
-              "recall": 0.4903,
-              "fpr": 0.1318,
-              "pss": 0.3585,
-              "area_alerted_pct": 14.41,
-              "false_alarms_per_1000km2_day": 1.0913
+              "precision": 0.1146,
+              "far": 0.8854,
+              "recall": 0.5692,
+              "fpr": 0.1671,
+              "pss": 0.4021,
+              "area_alerted_pct": 18.18,
+              "false_alarms_per_1000km2_day": 1.3805
             },
             {
               "tier": "critico_20pct",
+              "alerts": 14659,
+              "tp": 3415,
+              "fp": 11244,
+              "fn": 12600,
               "threshold": 0.2,
-              "precision": 0.2181,
-              "far": 0.7819,
-              "recall": 0.1932,
-              "fpr": 0.0246,
-              "pss": 0.1686,
-              "area_alerted_pct": 3.04,
-              "false_alarms_per_1000km2_day": 0.2039
+              "precision": 0.233,
+              "far": 0.767,
+              "recall": 0.2132,
+              "fpr": 0.0267,
+              "pss": 0.1866,
+              "area_alerted_pct": 3.35,
+              "false_alarms_per_1000km2_day": 0.2204
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 7752,
+              "tp": 2243,
+              "fp": 5509,
+              "fn": 13772,
               "threshold": 0.3,
-              "precision": 0.2747,
-              "far": 0.7253,
-              "recall": 0.118,
-              "fpr": 0.0111,
-              "pss": 0.1069,
-              "area_alerted_pct": 1.47,
-              "false_alarms_per_1000km2_day": 0.0917
+              "precision": 0.2893,
+              "far": 0.7107,
+              "recall": 0.1401,
+              "fpr": 0.0131,
+              "pss": 0.127,
+              "area_alerted_pct": 1.77,
+              "false_alarms_per_1000km2_day": 0.108
             }
-          ]
+          ],
+          "n_evaluated": 437565
         },
         "FWI Van Wagner puro (sin IA)": {
-          "roc_auc": 0.6611,
-          "pr_auc": 0.0568,
-          "brier": 0.03295,
-          "brier_skill_vs_clim_pct": -4.19,
-          "hit_rate_topk": 0.0704,
-          "base_rate": 0.03432,
-          "pss": 0.1864,
-          "threshold_cal": 0.0467,
-          "tpr": 0.3923,
-          "fpr": 0.2059,
-          "far": 0.9366,
-          "fnr": 0.6077,
-          "ece": 0.00557,
+          "roc_auc": 0.6568,
+          "pr_auc": 0.0597,
+          "brier": 0.03522,
+          "brier_skill_vs_clim_pct": -5.52,
+          "hit_rate_topk": 0.076,
+          "base_rate": 0.0366,
+          "pss": 0.2312,
+          "threshold_cal": 0.04044,
+          "tpr": 0.6742,
+          "fpr": 0.443,
+          "far": 0.9453,
+          "fnr": 0.3258,
+          "ece": 0.0115,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
-              "bin_hi": 0.0094,
-              "mean_pred": 0.00482,
-              "obs_freq": 0.00759,
-              "count": 40049
+              "bin_hi": 0.0152,
+              "mean_pred": 0.004,
+              "obs_freq": 0.00263,
+              "count": 5316
             },
             {
-              "bin_lo": 0.0094,
-              "bin_hi": 0.0183,
-              "mean_pred": 0.01098,
-              "obs_freq": 0.01385,
-              "count": 38043
+              "bin_lo": 0.0152,
+              "bin_hi": 0.0304,
+              "mean_pred": 0.01641,
+              "obs_freq": 0.01069,
+              "count": 58178
             },
             {
-              "bin_lo": 0.0183,
-              "bin_hi": 0.021,
-              "mean_pred": 0.01852,
-              "obs_freq": 0.01891,
-              "count": 31631
+              "bin_lo": 0.0304,
+              "bin_hi": 0.0334,
+              "mean_pred": 0.03124,
+              "obs_freq": 0.02016,
+              "count": 46229
             },
             {
-              "bin_lo": 0.021,
-              "bin_hi": 0.0215,
-              "mean_pred": 0.02108,
-              "obs_freq": 0.02121,
-              "count": 49262
+              "bin_lo": 0.0334,
+              "bin_hi": 0.0398,
+              "mean_pred": 0.03338,
+              "obs_freq": 0.02302,
+              "count": 54742
             },
             {
-              "bin_lo": 0.0215,
-              "bin_hi": 0.0262,
-              "mean_pred": 0.02148,
-              "obs_freq": 0.02499,
-              "count": 43177
+              "bin_lo": 0.0398,
+              "bin_hi": 0.0477,
+              "mean_pred": 0.03976,
+              "obs_freq": 0.03163,
+              "count": 75573
             },
             {
-              "bin_lo": 0.0262,
-              "bin_hi": 0.0329,
-              "mean_pred": 0.02644,
-              "obs_freq": 0.03289,
-              "count": 39433
+              "bin_lo": 0.0477,
+              "bin_hi": 0.0538,
+              "mean_pred": 0.04771,
+              "obs_freq": 0.03848,
+              "count": 41943
             },
             {
-              "bin_lo": 0.0329,
-              "bin_hi": 0.0393,
-              "mean_pred": 0.03292,
-              "obs_freq": 0.0366,
-              "count": 40386
-            },
-            {
-              "bin_lo": 0.0393,
-              "bin_hi": 0.0467,
-              "mean_pred": 0.04032,
-              "obs_freq": 0.04465,
+              "bin_lo": 0.0538,
+              "bin_hi": 0.0559,
+              "mean_pred": 0.05398,
+              "obs_freq": 0.04717,
               "count": 62694
             },
             {
-              "bin_lo": 0.0467,
-              "bin_hi": 0.0671,
-              "mean_pred": 0.05349,
-              "obs_freq": 0.05742,
-              "count": 48797
+              "bin_lo": 0.0559,
+              "bin_hi": 0.0804,
+              "mean_pred": 0.0654,
+              "obs_freq": 0.06055,
+              "count": 48509
             },
             {
-              "bin_lo": 0.0671,
+              "bin_lo": 0.0804,
               "bin_hi": 1.0,
-              "mean_pred": 0.09684,
-              "obs_freq": 0.07006,
-              "count": 44093
+              "mean_pred": 0.11795,
+              "obs_freq": 0.07411,
+              "count": 44381
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.0467,
-              "precision": 0.0634,
-              "far": 0.9366,
-              "recall": 0.3923,
-              "fpr": 0.2059,
-              "pss": 0.1864,
-              "area_alerted_pct": 21.23,
-              "false_alarms_per_1000km2_day": 1.7052
+              "alerts": 197531,
+              "tp": 10797,
+              "fp": 186734,
+              "fn": 5218,
+              "threshold": 0.04044,
+              "precision": 0.0547,
+              "far": 0.9453,
+              "recall": 0.6742,
+              "fpr": 0.443,
+              "pss": 0.2312,
+              "area_alerted_pct": 45.14,
+              "false_alarms_per_1000km2_day": 3.66
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 155657,
+              "tp": 9188,
+              "fp": 146469,
+              "fn": 6827,
               "threshold": 0.05,
-              "precision": 0.0673,
-              "far": 0.9327,
-              "recall": 0.3333,
-              "fpr": 0.1641,
-              "pss": 0.1692,
-              "area_alerted_pct": 17.0,
-              "false_alarms_per_1000km2_day": 1.3595
+              "precision": 0.059,
+              "far": 0.941,
+              "recall": 0.5737,
+              "fpr": 0.3475,
+              "pss": 0.2263,
+              "area_alerted_pct": 35.57,
+              "false_alarms_per_1000km2_day": 2.8708
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 26809,
+              "tp": 1962,
+              "fp": 24847,
+              "fn": 14053,
               "threshold": 0.1,
-              "precision": 0.0659,
-              "far": 0.9341,
-              "recall": 0.0859,
-              "fpr": 0.0433,
-              "pss": 0.0426,
-              "area_alerted_pct": 4.47,
-              "false_alarms_per_1000km2_day": 0.3584
+              "precision": 0.0732,
+              "far": 0.9268,
+              "recall": 0.1225,
+              "fpr": 0.0589,
+              "pss": 0.0636,
+              "area_alerted_pct": 6.13,
+              "false_alarms_per_1000km2_day": 0.487
             },
             {
               "tier": "critico_20pct",
+              "alerts": 2413,
+              "tp": 213,
+              "fp": 2200,
+              "fn": 15802,
               "threshold": 0.2,
-              "precision": 0.0,
-              "far": 0.0,
-              "recall": 0.0,
-              "fpr": 0.0,
-              "pss": 0.0,
-              "area_alerted_pct": 0.0,
-              "false_alarms_per_1000km2_day": 0.0
+              "precision": 0.0883,
+              "far": 0.9117,
+              "recall": 0.0133,
+              "fpr": 0.0052,
+              "pss": 0.0081,
+              "area_alerted_pct": 0.55,
+              "false_alarms_per_1000km2_day": 0.0431
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 16015,
               "threshold": 0.3,
               "precision": 0.0,
               "far": 0.0,
@@ -3940,821 +4137,954 @@
               "area_alerted_pct": 0.0,
               "false_alarms_per_1000km2_day": 0.0
             }
-          ]
+          ],
+          "n_evaluated": 437565
         },
         "IGNIS diario · sin clima": {
-          "roc_auc": 0.795,
-          "pr_auc": 0.1697,
-          "brier": 0.03087,
-          "brier_skill_vs_clim_pct": 2.4,
-          "hit_rate_topk": 0.2378,
-          "base_rate": 0.03432,
-          "pss": 0.4285,
-          "threshold_cal": 0.04543,
-          "tpr": 0.6319,
-          "fpr": 0.2034,
-          "far": 0.9005,
-          "fnr": 0.3681,
-          "ece": 0.00571,
+          "roc_auc": 0.802,
+          "pr_auc": 0.1847,
+          "brier": 0.03264,
+          "brier_skill_vs_clim_pct": 2.19,
+          "hit_rate_topk": 0.2548,
+          "base_rate": 0.0366,
+          "pss": 0.4271,
+          "threshold_cal": 0.03045,
+          "tpr": 0.8235,
+          "fpr": 0.3963,
+          "far": 0.9268,
+          "fnr": 0.1765,
+          "ece": 0.0092,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
-              "bin_hi": 0.0037,
-              "mean_pred": 0.00094,
-              "obs_freq": 0.00251,
-              "count": 37777
+              "bin_hi": 0.0047,
+              "mean_pred": 0.00167,
+              "obs_freq": 0.00276,
+              "count": 42722
             },
             {
-              "bin_lo": 0.0037,
-              "bin_hi": 0.0069,
-              "mean_pred": 0.00368,
-              "obs_freq": 0.00628,
-              "count": 6367
+              "bin_lo": 0.0047,
+              "bin_hi": 0.0105,
+              "mean_pred": 0.00738,
+              "obs_freq": 0.00974,
+              "count": 6060
             },
             {
-              "bin_lo": 0.0069,
-              "bin_hi": 0.0124,
-              "mean_pred": 0.00783,
-              "obs_freq": 0.00813,
-              "count": 120846
+              "bin_lo": 0.0105,
+              "bin_hi": 0.0106,
+              "mean_pred": 0.0105,
+              "obs_freq": 0.00673,
+              "count": 68599
             },
             {
-              "bin_lo": 0.0124,
-              "bin_hi": 0.0172,
-              "mean_pred": 0.01419,
-              "obs_freq": 0.01446,
-              "count": 47298
+              "bin_lo": 0.0106,
+              "bin_hi": 0.0133,
+              "mean_pred": 0.0106,
+              "obs_freq": 0.00898,
+              "count": 25950
             },
             {
-              "bin_lo": 0.0172,
-              "bin_hi": 0.022,
-              "mean_pred": 0.01972,
-              "obs_freq": 0.01932,
-              "count": 22519
+              "bin_lo": 0.0133,
+              "bin_hi": 0.0202,
+              "mean_pred": 0.01396,
+              "obs_freq": 0.01439,
+              "count": 64009
             },
             {
-              "bin_lo": 0.022,
-              "bin_hi": 0.0337,
-              "mean_pred": 0.02447,
-              "obs_freq": 0.02567,
-              "count": 59836
+              "bin_lo": 0.0202,
+              "bin_hi": 0.0313,
+              "mean_pred": 0.0219,
+              "obs_freq": 0.0207,
+              "count": 49956
             },
             {
-              "bin_lo": 0.0337,
-              "bin_hi": 0.0537,
-              "mean_pred": 0.03795,
-              "obs_freq": 0.0381,
-              "count": 52410
+              "bin_lo": 0.0313,
+              "bin_hi": 0.0411,
+              "mean_pred": 0.0313,
+              "obs_freq": 0.02774,
+              "count": 42751
             },
             {
-              "bin_lo": 0.0537,
-              "bin_hi": 0.0996,
-              "mean_pred": 0.06749,
-              "obs_freq": 0.05731,
-              "count": 44618
+              "bin_lo": 0.0411,
+              "bin_hi": 0.0634,
+              "mean_pred": 0.04919,
+              "obs_freq": 0.0402,
+              "count": 48537
             },
             {
-              "bin_lo": 0.0996,
+              "bin_lo": 0.0634,
+              "bin_hi": 0.1106,
+              "mean_pred": 0.08219,
+              "obs_freq": 0.06183,
+              "count": 42441
+            },
+            {
+              "bin_lo": 0.1106,
               "bin_hi": 1.0,
-              "mean_pred": 0.18566,
-              "obs_freq": 0.14579,
-              "count": 45894
+              "mean_pred": 0.2052,
+              "obs_freq": 0.15958,
+              "count": 46540
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.04543,
-              "precision": 0.0995,
-              "far": 0.9005,
-              "recall": 0.6319,
-              "fpr": 0.2034,
-              "pss": 0.4285,
-              "area_alerted_pct": 21.81,
-              "false_alarms_per_1000km2_day": 1.6843
+              "alerts": 180269,
+              "tp": 13188,
+              "fp": 167081,
+              "fn": 2827,
+              "threshold": 0.03045,
+              "precision": 0.0732,
+              "far": 0.9268,
+              "recall": 0.8235,
+              "fpr": 0.3963,
+              "pss": 0.4271,
+              "area_alerted_pct": 41.2,
+              "false_alarms_per_1000km2_day": 3.2748
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 112091,
+              "tp": 11085,
+              "fp": 101006,
+              "fn": 4930,
               "threshold": 0.05,
-              "precision": 0.0995,
-              "far": 0.9005,
-              "recall": 0.6319,
-              "fpr": 0.2034,
-              "pss": 0.4285,
-              "area_alerted_pct": 21.81,
-              "false_alarms_per_1000km2_day": 1.6843
+              "precision": 0.0989,
+              "far": 0.9011,
+              "recall": 0.6922,
+              "fpr": 0.2396,
+              "pss": 0.4526,
+              "area_alerted_pct": 25.62,
+              "false_alarms_per_1000km2_day": 1.9797
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 50038,
+              "tp": 7691,
+              "fp": 42347,
+              "fn": 8324,
               "threshold": 0.1,
-              "precision": 0.1596,
-              "far": 0.8404,
-              "recall": 0.4013,
-              "fpr": 0.0751,
-              "pss": 0.3261,
-              "area_alerted_pct": 8.63,
-              "false_alarms_per_1000km2_day": 0.6221
+              "precision": 0.1537,
+              "far": 0.8463,
+              "recall": 0.4802,
+              "fpr": 0.1005,
+              "pss": 0.3798,
+              "area_alerted_pct": 11.44,
+              "false_alarms_per_1000km2_day": 0.83
             },
             {
               "tier": "critico_20pct",
+              "alerts": 14741,
+              "tp": 3871,
+              "fp": 10870,
+              "fn": 12144,
               "threshold": 0.2,
-              "precision": 0.2482,
-              "far": 0.7518,
-              "recall": 0.2278,
-              "fpr": 0.0245,
-              "pss": 0.2033,
-              "area_alerted_pct": 3.15,
-              "false_alarms_per_1000km2_day": 0.2031
+              "precision": 0.2626,
+              "far": 0.7374,
+              "recall": 0.2417,
+              "fpr": 0.0258,
+              "pss": 0.2159,
+              "area_alerted_pct": 3.37,
+              "false_alarms_per_1000km2_day": 0.2131
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 7330,
+              "tp": 2391,
+              "fp": 4939,
+              "fn": 13624,
               "threshold": 0.3,
-              "precision": 0.3463,
-              "far": 0.6537,
-              "recall": 0.1164,
-              "fpr": 0.0078,
-              "pss": 0.1086,
-              "area_alerted_pct": 1.15,
-              "false_alarms_per_1000km2_day": 0.0647
+              "precision": 0.3262,
+              "far": 0.6738,
+              "recall": 0.1493,
+              "fpr": 0.0117,
+              "pss": 0.1376,
+              "area_alerted_pct": 1.68,
+              "false_alarms_per_1000km2_day": 0.0968
             }
-          ]
+          ],
+          "n_evaluated": 437565
         },
         "IGNIS diario · FIRMS + NASA POWER (FWI)": {
-          "roc_auc": 0.8023,
-          "pr_auc": 0.173,
-          "brier": 0.0306,
-          "brier_skill_vs_clim_pct": 3.26,
-          "hit_rate_topk": 0.2418,
-          "base_rate": 0.03432,
-          "pss": 0.4357,
-          "threshold_cal": 0.04792,
-          "tpr": 0.6204,
-          "fpr": 0.1847,
-          "far": 0.8933,
-          "fnr": 0.3796,
-          "ece": 0.00363,
+          "roc_auc": 0.8082,
+          "pr_auc": 0.1883,
+          "brier": 0.0323,
+          "brier_skill_vs_clim_pct": 3.21,
+          "hit_rate_topk": 0.2578,
+          "base_rate": 0.0366,
+          "pss": 0.4349,
+          "threshold_cal": 0.0228,
+          "tpr": 0.8383,
+          "fpr": 0.4034,
+          "far": 0.9268,
+          "fnr": 0.1617,
+          "ece": 0.00585,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
-              "bin_hi": 0.006,
-              "mean_pred": 0.0008,
-              "obs_freq": 0.0024,
-              "count": 41680
+              "bin_hi": 0.0036,
+              "mean_pred": 0.00099,
+              "obs_freq": 0.0023,
+              "count": 39950
             },
             {
-              "bin_lo": 0.006,
-              "bin_hi": 0.0126,
-              "mean_pred": 0.00666,
-              "obs_freq": 0.00793,
-              "count": 128409
+              "bin_lo": 0.0036,
+              "bin_hi": 0.0088,
+              "mean_pred": 0.0047,
+              "obs_freq": 0.00681,
+              "count": 12183
             },
             {
-              "bin_lo": 0.0126,
-              "bin_hi": 0.0154,
-              "mean_pred": 0.01341,
+              "bin_lo": 0.0088,
+              "bin_hi": 0.014,
+              "mean_pred": 0.0088,
+              "obs_freq": 0.00729,
+              "count": 96170
+            },
+            {
+              "bin_lo": 0.014,
+              "bin_hi": 0.0169,
+              "mean_pred": 0.01448,
               "obs_freq": 0.01287,
-              "count": 39556
+              "count": 60924
             },
             {
-              "bin_lo": 0.0154,
-              "bin_hi": 0.025,
-              "mean_pred": 0.01645,
-              "obs_freq": 0.01953,
-              "count": 49152
+              "bin_lo": 0.0169,
+              "bin_hi": 0.0228,
+              "mean_pred": 0.01721,
+              "obs_freq": 0.02071,
+              "count": 44852
             },
             {
-              "bin_lo": 0.025,
-              "bin_hi": 0.0311,
-              "mean_pred": 0.02525,
-              "obs_freq": 0.02763,
-              "count": 42268
+              "bin_lo": 0.0228,
+              "bin_hi": 0.0398,
+              "mean_pred": 0.03014,
+              "obs_freq": 0.02826,
+              "count": 51876
             },
             {
-              "bin_lo": 0.0311,
-              "bin_hi": 0.0462,
-              "mean_pred": 0.03692,
-              "obs_freq": 0.03962,
-              "count": 48970
+              "bin_lo": 0.0398,
+              "bin_hi": 0.0648,
+              "mean_pred": 0.04444,
+              "obs_freq": 0.0403,
+              "count": 40398
             },
             {
-              "bin_lo": 0.0462,
-              "bin_hi": 0.0878,
-              "mean_pred": 0.06223,
-              "obs_freq": 0.06088,
-              "count": 41688
+              "bin_lo": 0.0648,
+              "bin_hi": 0.0954,
+              "mean_pred": 0.0762,
+              "obs_freq": 0.06339,
+              "count": 44169
             },
             {
-              "bin_lo": 0.0878,
+              "bin_lo": 0.0954,
               "bin_hi": 1.0,
-              "mean_pred": 0.16755,
-              "obs_freq": 0.14801,
-              "count": 45842
+              "mean_pred": 0.18666,
+              "obs_freq": 0.16011,
+              "count": 47043
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.04792,
-              "precision": 0.1067,
-              "far": 0.8933,
-              "recall": 0.6204,
-              "fpr": 0.1847,
-              "pss": 0.4357,
-              "area_alerted_pct": 19.96,
-              "false_alarms_per_1000km2_day": 1.5295
+              "alerts": 183486,
+              "tp": 13426,
+              "fp": 170060,
+              "fn": 2589,
+              "threshold": 0.0228,
+              "precision": 0.0732,
+              "far": 0.9268,
+              "recall": 0.8383,
+              "fpr": 0.4034,
+              "pss": 0.4349,
+              "area_alerted_pct": 41.93,
+              "false_alarms_per_1000km2_day": 3.3332
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 91221,
+              "tp": 10332,
+              "fp": 80889,
+              "fn": 5683,
               "threshold": 0.05,
-              "precision": 0.1067,
-              "far": 0.8933,
-              "recall": 0.6204,
-              "fpr": 0.1847,
-              "pss": 0.4357,
-              "area_alerted_pct": 19.96,
-              "false_alarms_per_1000km2_day": 1.5295
+              "precision": 0.1133,
+              "far": 0.8867,
+              "recall": 0.6451,
+              "fpr": 0.1919,
+              "pss": 0.4533,
+              "area_alerted_pct": 20.85,
+              "false_alarms_per_1000km2_day": 1.5854
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 40410,
+              "tp": 7027,
+              "fp": 33383,
+              "fn": 8988,
               "threshold": 0.1,
-              "precision": 0.168,
-              "far": 0.832,
-              "recall": 0.3973,
-              "fpr": 0.07,
-              "pss": 0.3274,
-              "area_alerted_pct": 8.12,
-              "false_alarms_per_1000km2_day": 0.5793
+              "precision": 0.1739,
+              "far": 0.8261,
+              "recall": 0.4388,
+              "fpr": 0.0792,
+              "pss": 0.3596,
+              "area_alerted_pct": 9.24,
+              "false_alarms_per_1000km2_day": 0.6543
             },
             {
               "tier": "critico_20pct",
+              "alerts": 12610,
+              "tp": 3548,
+              "fp": 9062,
+              "fn": 12467,
               "threshold": 0.2,
-              "precision": 0.256,
-              "far": 0.744,
-              "recall": 0.2187,
-              "fpr": 0.0226,
-              "pss": 0.1961,
-              "area_alerted_pct": 2.93,
-              "false_alarms_per_1000km2_day": 0.1871
+              "precision": 0.2814,
+              "far": 0.7186,
+              "recall": 0.2215,
+              "fpr": 0.0215,
+              "pss": 0.2,
+              "area_alerted_pct": 2.88,
+              "false_alarms_per_1000km2_day": 0.1776
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 5381,
+              "tp": 1963,
+              "fp": 3418,
+              "fn": 14052,
               "threshold": 0.3,
-              "precision": 0.3784,
-              "far": 0.6216,
-              "recall": 0.098,
-              "fpr": 0.0057,
-              "pss": 0.0923,
-              "area_alerted_pct": 0.89,
-              "false_alarms_per_1000km2_day": 0.0474
+              "precision": 0.3648,
+              "far": 0.6352,
+              "recall": 0.1226,
+              "fpr": 0.0081,
+              "pss": 0.1145,
+              "area_alerted_pct": 1.23,
+              "false_alarms_per_1000km2_day": 0.067
             }
-          ]
+          ],
+          "n_evaluated": 437565,
+          "national_map_top30": {
+            "limit_per_day": 30,
+            "reviewed": 28230,
+            "hits": 4551,
+            "precision": 0.16121,
+            "recall": 0.28417
+          }
         }
       },
       "+72h": {
         "Climatología celda×mes": {
-          "roc_auc": 0.7628,
-          "pr_auc": 0.1826,
-          "brier": 0.04401,
+          "roc_auc": 0.7703,
+          "pr_auc": 0.198,
+          "brier": 0.04606,
           "brier_skill_vs_clim_pct": 0.0,
-          "hit_rate_topk": 0.2393,
-          "base_rate": 0.04907,
-          "pss": 0.3813,
+          "hit_rate_topk": 0.2558,
+          "base_rate": 0.05212,
+          "pss": 0.3959,
           "threshold_cal": 0.0629,
-          "tpr": 0.6728,
-          "fpr": 0.2915,
-          "far": 0.8936,
-          "fnr": 0.3272,
-          "ece": 0.01508,
+          "tpr": 0.6867,
+          "fpr": 0.2908,
+          "far": 0.8851,
+          "fnr": 0.3133,
+          "ece": 0.01368,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
               "bin_hi": 0.0088,
               "mean_pred": 0.0,
-              "obs_freq": 0.00766,
-              "count": 66679
+              "obs_freq": 0.00756,
+              "count": 67225
             },
             {
               "bin_lo": 0.0088,
               "bin_hi": 0.0175,
               "mean_pred": 0.00899,
-              "obs_freq": 0.01296,
-              "count": 51022
+              "obs_freq": 0.01305,
+              "count": 50347
             },
             {
               "bin_lo": 0.0175,
               "bin_hi": 0.0262,
-              "mean_pred": 0.01792,
-              "obs_freq": 0.01911,
-              "count": 47928
+              "mean_pred": 0.01791,
+              "obs_freq": 0.02058,
+              "count": 48921
             },
             {
               "bin_lo": 0.0262,
-              "bin_hi": 0.0359,
-              "mean_pred": 0.02891,
-              "obs_freq": 0.02786,
-              "count": 52435
+              "bin_hi": 0.0348,
+              "mean_pred": 0.02678,
+              "obs_freq": 0.0261,
+              "count": 38090
             },
             {
-              "bin_lo": 0.0359,
+              "bin_lo": 0.0348,
               "bin_hi": 0.0459,
-              "mean_pred": 0.04084,
-              "obs_freq": 0.03725,
-              "count": 40480
+              "mean_pred": 0.0392,
+              "obs_freq": 0.03699,
+              "count": 54075
             },
             {
               "bin_lo": 0.0459,
               "bin_hi": 0.0687,
-              "mean_pred": 0.05553,
-              "obs_freq": 0.04609,
-              "count": 46233
+              "mean_pred": 0.05545,
+              "obs_freq": 0.04683,
+              "count": 45593
             },
             {
               "bin_lo": 0.0687,
               "bin_hi": 0.0937,
-              "mean_pred": 0.07812,
-              "obs_freq": 0.05661,
-              "count": 42551
+              "mean_pred": 0.07831,
+              "obs_freq": 0.06008,
+              "count": 42892
             },
             {
               "bin_lo": 0.0937,
               "bin_hi": 0.1501,
-              "mean_pred": 0.1151,
-              "obs_freq": 0.08202,
-              "count": 45940
+              "mean_pred": 0.11515,
+              "obs_freq": 0.08824,
+              "count": 44540
             },
             {
               "bin_lo": 0.1501,
               "bin_hi": 1.0,
-              "mean_pred": 0.24719,
-              "obs_freq": 0.18443,
-              "count": 43832
+              "mean_pred": 0.25517,
+              "obs_freq": 0.19755,
+              "count": 45417
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
+              "alerts": 136138,
+              "tp": 15643,
+              "fp": 120495,
+              "fn": 7137,
               "threshold": 0.0629,
-              "precision": 0.1064,
-              "far": 0.8936,
-              "recall": 0.6728,
-              "fpr": 0.2915,
-              "pss": 0.3813,
-              "area_alerted_pct": 31.03,
-              "false_alarms_per_1000km2_day": 2.3777
+              "precision": 0.1149,
+              "far": 0.8851,
+              "recall": 0.6867,
+              "fpr": 0.2908,
+              "pss": 0.3959,
+              "area_alerted_pct": 31.15,
+              "false_alarms_per_1000km2_day": 2.3642
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 171978,
+              "tp": 17342,
+              "fp": 154636,
+              "fn": 5438,
               "threshold": 0.05,
-              "precision": 0.0938,
-              "far": 0.9062,
-              "recall": 0.7522,
-              "fpr": 0.3752,
-              "pss": 0.377,
-              "area_alerted_pct": 39.37,
-              "false_alarms_per_1000km2_day": 3.0599
+              "precision": 0.1008,
+              "far": 0.8992,
+              "recall": 0.7613,
+              "fpr": 0.3732,
+              "pss": 0.3881,
+              "area_alerted_pct": 39.35,
+              "false_alarms_per_1000km2_day": 3.0341
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 81713,
+              "tp": 12246,
+              "fp": 69467,
+              "fn": 10534,
               "threshold": 0.1,
-              "precision": 0.1387,
-              "far": 0.8613,
-              "recall": 0.5229,
-              "fpr": 0.1676,
-              "pss": 0.3553,
-              "area_alerted_pct": 18.5,
-              "false_alarms_per_1000km2_day": 1.367
+              "precision": 0.1499,
+              "far": 0.8501,
+              "recall": 0.5376,
+              "fpr": 0.1677,
+              "pss": 0.3699,
+              "area_alerted_pct": 18.69,
+              "false_alarms_per_1000km2_day": 1.363
             },
             {
               "tier": "critico_20pct",
+              "alerts": 27134,
+              "tp": 6594,
+              "fp": 20540,
+              "fn": 16186,
               "threshold": 0.2,
-              "precision": 0.2267,
-              "far": 0.7733,
-              "recall": 0.2651,
-              "fpr": 0.0467,
-              "pss": 0.2185,
-              "area_alerted_pct": 5.74,
-              "false_alarms_per_1000km2_day": 0.3807
+              "precision": 0.243,
+              "far": 0.757,
+              "recall": 0.2895,
+              "fpr": 0.0496,
+              "pss": 0.2399,
+              "area_alerted_pct": 6.21,
+              "false_alarms_per_1000km2_day": 0.403
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 11658,
+              "tp": 3663,
+              "fp": 7995,
+              "fn": 19117,
               "threshold": 0.3,
-              "precision": 0.31,
-              "far": 0.69,
-              "recall": 0.1384,
-              "fpr": 0.0159,
-              "pss": 0.1225,
-              "area_alerted_pct": 2.19,
-              "false_alarms_per_1000km2_day": 0.1296
+              "precision": 0.3142,
+              "far": 0.6858,
+              "recall": 0.1608,
+              "fpr": 0.0193,
+              "pss": 0.1415,
+              "area_alerted_pct": 2.67,
+              "false_alarms_per_1000km2_day": 0.1569
             }
-          ]
+          ],
+          "n_evaluated": 437100
         },
         "Persistencia 7 días (sin calibrar)": {
-          "roc_auc": 0.7726,
-          "pr_auc": 0.1881,
-          "brier": 0.05953,
-          "brier_skill_vs_clim_pct": -35.28,
-          "hit_rate_topk": 0.2374,
-          "base_rate": 0.04907,
-          "pss": 0.409,
-          "threshold_cal": 0.03635,
-          "tpr": 0.6989,
-          "fpr": 0.2898,
-          "far": 0.8893,
-          "fnr": 0.3011,
-          "ece": 0.04945,
+          "roc_auc": 0.7806,
+          "pr_auc": 0.206,
+          "brier": 0.06153,
+          "brier_skill_vs_clim_pct": -33.58,
+          "hit_rate_topk": 0.2581,
+          "base_rate": 0.05212,
+          "pss": 0.4191,
+          "threshold_cal": 0.03295,
+          "tpr": 0.7399,
+          "fpr": 0.3208,
+          "far": 0.8875,
+          "fnr": 0.2601,
+          "ece": 0.04902,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
               "bin_hi": 0.0044,
               "mean_pred": 0.0,
-              "obs_freq": 0.00689,
-              "count": 65569
+              "obs_freq": 0.00688,
+              "count": 66122
             },
             {
               "bin_lo": 0.0044,
               "bin_hi": 0.0087,
               "mean_pred": 0.0045,
-              "obs_freq": 0.01153,
-              "count": 49621
+              "obs_freq": 0.01147,
+              "count": 48930
             },
             {
               "bin_lo": 0.0087,
               "bin_hi": 0.0131,
               "mean_pred": 0.00896,
-              "obs_freq": 0.01756,
-              "count": 45951
+              "obs_freq": 0.0187,
+              "count": 46779
             },
             {
               "bin_lo": 0.0131,
               "bin_hi": 0.018,
-              "mean_pred": 0.01445,
-              "obs_freq": 0.02443,
-              "count": 49324
+              "mean_pred": 0.01446,
+              "obs_freq": 0.02489,
+              "count": 49023
             },
             {
               "bin_lo": 0.018,
               "bin_hi": 0.0259,
-              "mean_pred": 0.02079,
-              "obs_freq": 0.03254,
-              "count": 43245
+              "mean_pred": 0.02077,
+              "obs_freq": 0.03304,
+              "count": 42740
             },
             {
               "bin_lo": 0.0259,
               "bin_hi": 0.0386,
-              "mean_pred": 0.03051,
-              "obs_freq": 0.04276,
-              "count": 51006
+              "mean_pred": 0.03039,
+              "obs_freq": 0.04381,
+              "count": 49390
             },
             {
               "bin_lo": 0.0386,
-              "bin_hi": 0.0591,
-              "mean_pred": 0.04647,
-              "obs_freq": 0.0591,
-              "count": 43438
+              "bin_hi": 0.0601,
+              "mean_pred": 0.04697,
+              "obs_freq": 0.06237,
+              "count": 46241
             },
             {
-              "bin_lo": 0.0591,
-              "bin_hi": 0.2498,
-              "mean_pred": 0.09467,
-              "obs_freq": 0.11021,
-              "count": 45195
+              "bin_lo": 0.0601,
+              "bin_hi": 0.5044,
+              "mean_pred": 0.1115,
+              "obs_freq": 0.11848,
+              "count": 43500
             },
             {
-              "bin_lo": 0.2498,
+              "bin_lo": 0.5044,
               "bin_hi": 1.0,
-              "mean_pred": 0.56729,
-              "obs_freq": 0.16633,
-              "count": 43751
+              "mean_pred": 0.57503,
+              "obs_freq": 0.18152,
+              "count": 44375
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.03635,
-              "precision": 0.1107,
-              "far": 0.8893,
-              "recall": 0.6989,
-              "fpr": 0.2898,
-              "pss": 0.409,
-              "area_alerted_pct": 30.99,
-              "false_alarms_per_1000km2_day": 2.3638
+              "alerts": 149785,
+              "tp": 16856,
+              "fp": 132929,
+              "fn": 5924,
+              "threshold": 0.03295,
+              "precision": 0.1125,
+              "far": 0.8875,
+              "recall": 0.7399,
+              "fpr": 0.3208,
+              "pss": 0.4191,
+              "area_alerted_pct": 34.27,
+              "false_alarms_per_1000km2_day": 2.6082
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 104102,
+              "tp": 14413,
+              "fp": 89689,
+              "fn": 8367,
               "threshold": 0.05,
-              "precision": 0.1287,
-              "far": 0.8713,
-              "recall": 0.6159,
-              "fpr": 0.2152,
-              "pss": 0.4007,
-              "area_alerted_pct": 23.49,
-              "false_alarms_per_1000km2_day": 1.7552
+              "precision": 0.1385,
+              "far": 0.8615,
+              "recall": 0.6327,
+              "fpr": 0.2165,
+              "pss": 0.4162,
+              "area_alerted_pct": 23.82,
+              "false_alarms_per_1000km2_day": 1.7598
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 60859,
+              "tp": 10824,
+              "fp": 50035,
+              "fn": 11956,
               "threshold": 0.1,
-              "precision": 0.1645,
-              "far": 0.8355,
-              "recall": 0.4464,
-              "fpr": 0.117,
-              "pss": 0.3294,
-              "area_alerted_pct": 13.32,
-              "false_alarms_per_1000km2_day": 0.9542
+              "precision": 0.1779,
+              "far": 0.8221,
+              "recall": 0.4752,
+              "fpr": 0.1208,
+              "pss": 0.3544,
+              "area_alerted_pct": 13.92,
+              "false_alarms_per_1000km2_day": 0.9817
             },
             {
               "tier": "critico_20pct",
+              "alerts": 47042,
+              "tp": 8558,
+              "fp": 38484,
+              "fn": 14222,
               "threshold": 0.2,
-              "precision": 0.1677,
-              "far": 0.8323,
-              "recall": 0.3478,
-              "fpr": 0.0891,
-              "pss": 0.2587,
-              "area_alerted_pct": 10.18,
-              "false_alarms_per_1000km2_day": 0.7265
+              "precision": 0.1819,
+              "far": 0.8181,
+              "recall": 0.3757,
+              "fpr": 0.0929,
+              "pss": 0.2828,
+              "area_alerted_pct": 10.76,
+              "false_alarms_per_1000km2_day": 0.7551
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 45641,
+              "tp": 8196,
+              "fp": 37445,
+              "fn": 14584,
               "threshold": 0.3,
-              "precision": 0.1654,
-              "far": 0.8346,
-              "recall": 0.3356,
-              "fpr": 0.0874,
-              "pss": 0.2482,
-              "area_alerted_pct": 9.96,
-              "false_alarms_per_1000km2_day": 0.7127
+              "precision": 0.1796,
+              "far": 0.8204,
+              "recall": 0.3598,
+              "fpr": 0.0904,
+              "pss": 0.2694,
+              "area_alerted_pct": 10.44,
+              "false_alarms_per_1000km2_day": 0.7347
             }
-          ]
+          ],
+          "n_evaluated": 437100
         },
         "Persistencia 7 días (calibrada)": {
-          "roc_auc": 0.7734,
-          "pr_auc": 0.1801,
-          "brier": 0.04397,
-          "brier_skill_vs_clim_pct": 0.09,
-          "hit_rate_topk": 0.2364,
-          "base_rate": 0.04907,
-          "pss": 0.409,
-          "threshold_cal": 0.05541,
-          "tpr": 0.6989,
-          "fpr": 0.2898,
-          "far": 0.8893,
-          "fnr": 0.3011,
-          "ece": 0.01349,
+          "roc_auc": 0.7814,
+          "pr_auc": 0.1974,
+          "brier": 0.04685,
+          "brier_skill_vs_clim_pct": -1.71,
+          "hit_rate_topk": 0.2598,
+          "base_rate": 0.05212,
+          "pss": 0.4184,
+          "threshold_cal": 0.06789,
+          "tpr": 0.7427,
+          "fpr": 0.3243,
+          "far": 0.8882,
+          "fnr": 0.2573,
+          "ece": 0.02641,
           "reliability_curve": [
             {
-              "bin_lo": 0.0075,
-              "bin_hi": 0.0105,
-              "mean_pred": 0.00751,
-              "obs_freq": 0.00689,
-              "count": 65569
+              "bin_lo": 0.0109,
+              "bin_hi": 0.0177,
+              "mean_pred": 0.01087,
+              "obs_freq": 0.00688,
+              "count": 66122
             },
             {
-              "bin_lo": 0.0105,
-              "bin_hi": 0.0176,
-              "mean_pred": 0.01098,
-              "obs_freq": 0.01139,
-              "count": 45819
+              "bin_lo": 0.0177,
+              "bin_hi": 0.0244,
+              "mean_pred": 0.01802,
+              "obs_freq": 0.01147,
+              "count": 48930
             },
             {
-              "bin_lo": 0.0176,
-              "bin_hi": 0.0242,
-              "mean_pred": 0.01828,
-              "obs_freq": 0.01672,
-              "count": 46243
+              "bin_lo": 0.0244,
+              "bin_hi": 0.0315,
+              "mean_pred": 0.02442,
+              "obs_freq": 0.01821,
+              "count": 43446
             },
             {
-              "bin_lo": 0.0242,
-              "bin_hi": 0.0257,
-              "mean_pred": 0.0242,
-              "obs_freq": 0.02306,
-              "count": 33563
+              "bin_lo": 0.0315,
+              "bin_hi": 0.0674,
+              "mean_pred": 0.03698,
+              "obs_freq": 0.02812,
+              "count": 92873
             },
             {
-              "bin_lo": 0.0257,
-              "bin_hi": 0.047,
-              "mean_pred": 0.03029,
-              "obs_freq": 0.03011,
-              "count": 56587
+              "bin_lo": 0.0674,
+              "bin_hi": 0.0966,
+              "mean_pred": 0.0701,
+              "obs_freq": 0.04321,
+              "count": 50469
             },
             {
-              "bin_lo": 0.047,
-              "bin_hi": 0.0698,
-              "mean_pred": 0.04957,
-              "obs_freq": 0.04148,
-              "count": 53856
+              "bin_lo": 0.0966,
+              "bin_hi": 0.1263,
+              "mean_pred": 0.1024,
+              "obs_freq": 0.0615,
+              "count": 44696
             },
             {
-              "bin_lo": 0.0698,
-              "bin_hi": 0.0904,
-              "mean_pred": 0.07542,
-              "obs_freq": 0.05919,
-              "count": 43163
+              "bin_lo": 0.1263,
+              "bin_hi": 0.1839,
+              "mean_pred": 0.13898,
+              "obs_freq": 0.08106,
+              "count": 24723
             },
             {
-              "bin_lo": 0.0904,
-              "bin_hi": 0.1544,
-              "mean_pred": 0.10752,
-              "obs_freq": 0.07852,
-              "count": 29367
-            },
-            {
-              "bin_lo": 0.1544,
+              "bin_lo": 0.1839,
               "bin_hi": 1.0,
-              "mean_pred": 0.22016,
-              "obs_freq": 0.16095,
-              "count": 62933
+              "mean_pred": 0.25329,
+              "obs_freq": 0.17355,
+              "count": 65841
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.05541,
-              "precision": 0.1107,
-              "far": 0.8893,
-              "recall": 0.6989,
-              "fpr": 0.2898,
-              "pss": 0.409,
-              "area_alerted_pct": 30.99,
-              "false_alarms_per_1000km2_day": 2.3638
+              "alerts": 151286,
+              "tp": 16918,
+              "fp": 134368,
+              "fn": 5862,
+              "threshold": 0.06789,
+              "precision": 0.1118,
+              "far": 0.8882,
+              "recall": 0.7427,
+              "fpr": 0.3243,
+              "pss": 0.4184,
+              "area_alerted_pct": 34.61,
+              "false_alarms_per_1000km2_day": 2.6364
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 189403,
+              "tp": 18489,
+              "fp": 170914,
+              "fn": 4291,
               "threshold": 0.05,
-              "precision": 0.1041,
-              "far": 0.8959,
-              "recall": 0.7304,
-              "fpr": 0.3245,
-              "pss": 0.406,
-              "area_alerted_pct": 34.44,
-              "false_alarms_per_1000km2_day": 2.6462
+              "precision": 0.0976,
+              "far": 0.9024,
+              "recall": 0.8116,
+              "fpr": 0.4125,
+              "pss": 0.3991,
+              "area_alerted_pct": 43.33,
+              "false_alarms_per_1000km2_day": 3.3535
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 100496,
+              "tp": 14127,
+              "fp": 86369,
+              "fn": 8653,
               "threshold": 0.1,
-              "precision": 0.1475,
-              "far": 0.8525,
-              "recall": 0.5303,
-              "fpr": 0.1581,
-              "pss": 0.3722,
-              "area_alerted_pct": 17.64,
-              "false_alarms_per_1000km2_day": 1.2896
+              "precision": 0.1406,
+              "far": 0.8594,
+              "recall": 0.6201,
+              "fpr": 0.2085,
+              "pss": 0.4117,
+              "area_alerted_pct": 22.99,
+              "false_alarms_per_1000km2_day": 1.6946
             },
             {
               "tier": "critico_20pct",
+              "alerts": 24685,
+              "tp": 6193,
+              "fp": 18492,
+              "fn": 16587,
               "threshold": 0.2,
-              "precision": 0.2305,
-              "far": 0.7695,
-              "recall": 0.248,
-              "fpr": 0.0427,
-              "pss": 0.2053,
-              "area_alerted_pct": 5.28,
-              "false_alarms_per_1000km2_day": 0.3485
+              "precision": 0.2509,
+              "far": 0.7491,
+              "recall": 0.2719,
+              "fpr": 0.0446,
+              "pss": 0.2272,
+              "area_alerted_pct": 5.65,
+              "false_alarms_per_1000km2_day": 0.3628
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 14651,
+              "tp": 4554,
+              "fp": 10097,
+              "fn": 18226,
               "threshold": 0.3,
-              "precision": 0.3032,
-              "far": 0.6968,
-              "recall": 0.1688,
-              "fpr": 0.02,
-              "pss": 0.1488,
-              "area_alerted_pct": 2.73,
-              "false_alarms_per_1000km2_day": 0.1633
+              "precision": 0.3108,
+              "far": 0.6892,
+              "recall": 0.1999,
+              "fpr": 0.0244,
+              "pss": 0.1755,
+              "area_alerted_pct": 3.35,
+              "false_alarms_per_1000km2_day": 0.1981
             }
-          ]
+          ],
+          "n_evaluated": 437100
         },
         "FWI Van Wagner puro (sin IA)": {
-          "roc_auc": 0.6514,
-          "pr_auc": 0.0781,
-          "brier": 0.04629,
-          "brier_skill_vs_clim_pct": -5.19,
-          "hit_rate_topk": 0.0931,
-          "base_rate": 0.04907,
-          "pss": 0.1749,
-          "threshold_cal": 0.06539,
-          "tpr": 0.378,
-          "fpr": 0.2031,
-          "far": 0.9124,
-          "fnr": 0.622,
-          "ece": 0.00747,
+          "roc_auc": 0.6478,
+          "pr_auc": 0.0819,
+          "brier": 0.04933,
+          "brier_skill_vs_clim_pct": -7.09,
+          "hit_rate_topk": 0.1006,
+          "base_rate": 0.05212,
+          "pss": 0.2169,
+          "threshold_cal": 0.05791,
+          "tpr": 0.6565,
+          "fpr": 0.4395,
+          "far": 0.9241,
+          "fnr": 0.3435,
+          "ece": 0.01656,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
-              "bin_hi": 0.013,
-              "mean_pred": 0.00822,
-              "obs_freq": 0.01347,
-              "count": 37649
+              "bin_hi": 0.0228,
+              "mean_pred": 0.00404,
+              "obs_freq": 0.0064,
+              "count": 5316
             },
             {
-              "bin_lo": 0.013,
-              "bin_hi": 0.0291,
-              "mean_pred": 0.01683,
-              "obs_freq": 0.02126,
-              "count": 40443
+              "bin_lo": 0.0228,
+              "bin_hi": 0.0475,
+              "mean_pred": 0.02457,
+              "obs_freq": 0.01782,
+              "count": 58178
             },
             {
-              "bin_lo": 0.0291,
-              "bin_hi": 0.0299,
-              "mean_pred": 0.02905,
-              "obs_freq": 0.0275,
-              "count": 28185
+              "bin_lo": 0.0475,
+              "bin_hi": 0.0495,
+              "mean_pred": 0.0475,
+              "obs_freq": 0.03,
+              "count": 26470
             },
             {
-              "bin_lo": 0.0299,
-              "bin_hi": 0.0303,
-              "mean_pred": 0.02987,
-              "obs_freq": 0.03077,
-              "count": 45537
-            },
-            {
-              "bin_lo": 0.0303,
-              "bin_hi": 0.0403,
-              "mean_pred": 0.03033,
-              "obs_freq": 0.03792,
-              "count": 50348
-            },
-            {
-              "bin_lo": 0.0403,
-              "bin_hi": 0.0488,
-              "mean_pred": 0.04035,
-              "obs_freq": 0.04779,
-              "count": 37876
-            },
-            {
-              "bin_lo": 0.0488,
+              "bin_lo": 0.0495,
               "bin_hi": 0.0558,
-              "mean_pred": 0.04885,
-              "obs_freq": 0.05262,
-              "count": 41941
+              "mean_pred": 0.04949,
+              "obs_freq": 0.03314,
+              "count": 74501
             },
             {
               "bin_lo": 0.0558,
-              "bin_hi": 0.0663,
-              "mean_pred": 0.05734,
-              "obs_freq": 0.06191,
+              "bin_hi": 0.0726,
+              "mean_pred": 0.05578,
+              "obs_freq": 0.04621,
+              "count": 75573
+            },
+            {
+              "bin_lo": 0.0726,
+              "bin_hi": 0.0753,
+              "mean_pred": 0.0726,
+              "obs_freq": 0.05567,
+              "count": 41941
+            },
+            {
+              "bin_lo": 0.0753,
+              "bin_hi": 0.0826,
+              "mean_pred": 0.07559,
+              "obs_freq": 0.0651,
               "count": 62622
             },
             {
-              "bin_lo": 0.0663,
-              "bin_hi": 0.0913,
-              "mean_pred": 0.07538,
-              "obs_freq": 0.07952,
-              "count": 48339
+              "bin_lo": 0.0826,
+              "bin_hi": 0.1107,
+              "mean_pred": 0.09011,
+              "obs_freq": 0.08012,
+              "count": 37544
             },
             {
-              "bin_lo": 0.0913,
+              "bin_lo": 0.1107,
               "bin_hi": 1.0,
-              "mean_pred": 0.13028,
-              "obs_freq": 0.09644,
-              "count": 44160
+              "mean_pred": 0.14963,
+              "obs_freq": 0.1007,
+              "count": 54955
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.06539,
-              "precision": 0.0876,
-              "far": 0.9124,
-              "recall": 0.378,
-              "fpr": 0.2031,
-              "pss": 0.1749,
-              "area_alerted_pct": 21.17,
-              "false_alarms_per_1000km2_day": 1.6566
+              "alerts": 197066,
+              "tp": 14954,
+              "fp": 182112,
+              "fn": 7826,
+              "threshold": 0.05791,
+              "precision": 0.0759,
+              "far": 0.9241,
+              "recall": 0.6565,
+              "fpr": 0.4395,
+              "pss": 0.2169,
+              "area_alerted_pct": 45.08,
+              "false_alarms_per_1000km2_day": 3.5732
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 272921,
+              "tp": 18462,
+              "fp": 254459,
+              "fn": 4318,
               "threshold": 0.05,
-              "precision": 0.0772,
-              "far": 0.9228,
-              "recall": 0.5588,
-              "fpr": 0.3444,
-              "pss": 0.2143,
-              "area_alerted_pct": 35.49,
-              "false_alarms_per_1000km2_day": 2.809
+              "precision": 0.0676,
+              "far": 0.9324,
+              "recall": 0.8104,
+              "fpr": 0.6142,
+              "pss": 0.1963,
+              "area_alerted_pct": 62.44,
+              "false_alarms_per_1000km2_day": 4.9927
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 55086,
+              "tp": 5546,
+              "fp": 49540,
+              "fn": 17234,
               "threshold": 0.1,
-              "precision": 0.0976,
-              "far": 0.9024,
-              "recall": 0.1568,
-              "fpr": 0.0748,
-              "pss": 0.082,
-              "area_alerted_pct": 7.88,
-              "false_alarms_per_1000km2_day": 0.6101
+              "precision": 0.1007,
+              "far": 0.8993,
+              "recall": 0.2435,
+              "fpr": 0.1196,
+              "pss": 0.1239,
+              "area_alerted_pct": 12.6,
+              "false_alarms_per_1000km2_day": 0.972
             },
             {
               "tier": "critico_20pct",
+              "alerts": 4222,
+              "tp": 472,
+              "fp": 3750,
+              "fn": 22308,
               "threshold": 0.2,
-              "precision": 0.1029,
-              "far": 0.8971,
-              "recall": 0.0117,
-              "fpr": 0.0053,
-              "pss": 0.0065,
-              "area_alerted_pct": 0.56,
-              "false_alarms_per_1000km2_day": 0.0431
+              "precision": 0.1118,
+              "far": 0.8882,
+              "recall": 0.0207,
+              "fpr": 0.0091,
+              "pss": 0.0117,
+              "area_alerted_pct": 0.97,
+              "false_alarms_per_1000km2_day": 0.0736
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 22780,
               "threshold": 0.3,
               "precision": 0.0,
               "far": 0.0,
@@ -4764,288 +5094,338 @@
               "area_alerted_pct": 0.0,
               "false_alarms_per_1000km2_day": 0.0
             }
-          ]
+          ],
+          "n_evaluated": 437100
         },
         "IGNIS diario · sin clima": {
-          "roc_auc": 0.7887,
-          "pr_auc": 0.2116,
-          "brier": 0.04287,
-          "brier_skill_vs_clim_pct": 2.58,
-          "hit_rate_topk": 0.2717,
-          "base_rate": 0.04907,
-          "pss": 0.4182,
-          "threshold_cal": 0.0604,
-          "tpr": 0.6294,
-          "fpr": 0.2112,
-          "far": 0.8667,
-          "fnr": 0.3706,
-          "ece": 0.00812,
+          "roc_auc": 0.7962,
+          "pr_auc": 0.2307,
+          "brier": 0.04501,
+          "brier_skill_vs_clim_pct": 2.28,
+          "hit_rate_topk": 0.2924,
+          "base_rate": 0.05212,
+          "pss": 0.4225,
+          "threshold_cal": 0.03794,
+          "tpr": 0.8089,
+          "fpr": 0.3864,
+          "far": 0.8968,
+          "fnr": 0.1911,
+          "ece": 0.01356,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
-              "bin_hi": 0.0066,
-              "mean_pred": 0.00185,
-              "obs_freq": 0.00392,
-              "count": 39522
+              "bin_hi": 0.0118,
+              "mean_pred": 0.00265,
+              "obs_freq": 0.00396,
+              "count": 43153
             },
             {
-              "bin_lo": 0.0066,
-              "bin_hi": 0.0104,
-              "mean_pred": 0.00657,
-              "obs_freq": 0.0119,
-              "count": 4454
+              "bin_lo": 0.0118,
+              "bin_hi": 0.0163,
+              "mean_pred": 0.0118,
+              "obs_freq": 0.01285,
+              "count": 4903
             },
             {
-              "bin_lo": 0.0104,
-              "bin_hi": 0.0114,
-              "mean_pred": 0.01037,
-              "obs_freq": 0.01029,
-              "count": 71829
+              "bin_lo": 0.0163,
+              "bin_hi": 0.017,
+              "mean_pred": 0.0163,
+              "obs_freq": 0.01095,
+              "count": 79145
             },
             {
-              "bin_lo": 0.0114,
-              "bin_hi": 0.0188,
-              "mean_pred": 0.0126,
-              "obs_freq": 0.01534,
-              "count": 34613
+              "bin_lo": 0.017,
+              "bin_hi": 0.0235,
+              "mean_pred": 0.01806,
+              "obs_freq": 0.01718,
+              "count": 38877
             },
             {
-              "bin_lo": 0.0188,
-              "bin_hi": 0.0261,
-              "mean_pred": 0.01991,
-              "obs_freq": 0.02026,
-              "count": 51232
+              "bin_lo": 0.0235,
+              "bin_hi": 0.0296,
+              "mean_pred": 0.02546,
+              "obs_freq": 0.02333,
+              "count": 42397
             },
             {
-              "bin_lo": 0.0261,
-              "bin_hi": 0.036,
-              "mean_pred": 0.02835,
-              "obs_freq": 0.03055,
-              "count": 57022
+              "bin_lo": 0.0296,
+              "bin_hi": 0.0437,
+              "mean_pred": 0.03237,
+              "obs_freq": 0.03215,
+              "count": 51283
             },
             {
-              "bin_lo": 0.036,
-              "bin_hi": 0.0495,
-              "mean_pred": 0.04128,
-              "obs_freq": 0.04172,
-              "count": 42185
+              "bin_lo": 0.0437,
+              "bin_hi": 0.0648,
+              "mean_pred": 0.04702,
+              "obs_freq": 0.04254,
+              "count": 41133
             },
             {
-              "bin_lo": 0.0495,
-              "bin_hi": 0.0752,
-              "mean_pred": 0.05638,
-              "obs_freq": 0.05592,
-              "count": 39126
+              "bin_lo": 0.0648,
+              "bin_hi": 0.0936,
+              "mean_pred": 0.06645,
+              "obs_freq": 0.05509,
+              "count": 27176
             },
             {
-              "bin_lo": 0.0752,
-              "bin_hi": 0.1349,
-              "mean_pred": 0.09471,
-              "obs_freq": 0.08235,
-              "count": 52838
+              "bin_lo": 0.0936,
+              "bin_hi": 0.1633,
+              "mean_pred": 0.11074,
+              "obs_freq": 0.08178,
+              "count": 62396
             },
             {
-              "bin_lo": 0.1349,
+              "bin_lo": 0.1633,
               "bin_hi": 1.0,
-              "mean_pred": 0.25751,
-              "obs_freq": 0.20082,
-              "count": 44279
+              "mean_pred": 0.27935,
+              "obs_freq": 0.21492,
+              "count": 46637
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.0604,
-              "precision": 0.1333,
-              "far": 0.8667,
-              "recall": 0.6294,
-              "fpr": 0.2112,
-              "pss": 0.4182,
-              "area_alerted_pct": 23.17,
-              "false_alarms_per_1000km2_day": 1.7225
+              "alerts": 178503,
+              "tp": 18426,
+              "fp": 160077,
+              "fn": 4354,
+              "threshold": 0.03794,
+              "precision": 0.1032,
+              "far": 0.8968,
+              "recall": 0.8089,
+              "fpr": 0.3864,
+              "pss": 0.4225,
+              "area_alerted_pct": 40.84,
+              "false_alarms_per_1000km2_day": 3.1409
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 152864,
+              "tp": 17391,
+              "fp": 135473,
+              "fn": 5389,
               "threshold": 0.05,
-              "precision": 0.1191,
-              "far": 0.8809,
-              "recall": 0.6925,
-              "fpr": 0.2643,
-              "pss": 0.4282,
-              "area_alerted_pct": 28.53,
-              "false_alarms_per_1000km2_day": 2.1557
+              "precision": 0.1138,
+              "far": 0.8862,
+              "recall": 0.7634,
+              "fpr": 0.327,
+              "pss": 0.4365,
+              "area_alerted_pct": 34.97,
+              "false_alarms_per_1000km2_day": 2.6581
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 81834,
+              "tp": 13322,
+              "fp": 68512,
+              "fn": 9458,
               "threshold": 0.1,
-              "precision": 0.173,
-              "far": 0.827,
-              "recall": 0.4886,
-              "fpr": 0.1205,
-              "pss": 0.3681,
-              "area_alerted_pct": 13.86,
-              "false_alarms_per_1000km2_day": 0.9831
+              "precision": 0.1628,
+              "far": 0.8372,
+              "recall": 0.5848,
+              "fpr": 0.1654,
+              "pss": 0.4195,
+              "area_alerted_pct": 18.72,
+              "false_alarms_per_1000km2_day": 1.3443
             },
             {
               "tier": "critico_20pct",
+              "alerts": 30438,
+              "tp": 7928,
+              "fp": 22510,
+              "fn": 14852,
               "threshold": 0.2,
-              "precision": 0.2703,
-              "far": 0.7297,
-              "recall": 0.2733,
-              "fpr": 0.0381,
-              "pss": 0.2352,
-              "area_alerted_pct": 4.96,
-              "false_alarms_per_1000km2_day": 0.3105
+              "precision": 0.2605,
+              "far": 0.7395,
+              "recall": 0.348,
+              "fpr": 0.0543,
+              "pss": 0.2937,
+              "area_alerted_pct": 6.96,
+              "false_alarms_per_1000km2_day": 0.4417
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 13561,
+              "tp": 4788,
+              "fp": 8773,
+              "fn": 17992,
               "threshold": 0.3,
-              "precision": 0.3467,
-              "far": 0.6533,
-              "recall": 0.1752,
-              "fpr": 0.017,
-              "pss": 0.1582,
-              "area_alerted_pct": 2.48,
-              "false_alarms_per_1000km2_day": 0.1389
+              "precision": 0.3531,
+              "far": 0.6469,
+              "recall": 0.2102,
+              "fpr": 0.0212,
+              "pss": 0.189,
+              "area_alerted_pct": 3.1,
+              "false_alarms_per_1000km2_day": 0.1721
             }
-          ]
+          ],
+          "n_evaluated": 437100
         },
         "IGNIS diario · FIRMS + NASA POWER (FWI)": {
-          "roc_auc": 0.7955,
-          "pr_auc": 0.2167,
-          "brier": 0.0424,
-          "brier_skill_vs_clim_pct": 3.65,
-          "hit_rate_topk": 0.2757,
-          "base_rate": 0.04907,
-          "pss": 0.4231,
-          "threshold_cal": 0.0629,
-          "tpr": 0.6143,
-          "fpr": 0.1913,
-          "far": 0.8578,
-          "fnr": 0.3857,
-          "ece": 0.00579,
+          "roc_auc": 0.8024,
+          "pr_auc": 0.2347,
+          "brier": 0.04451,
+          "brier_skill_vs_clim_pct": 3.38,
+          "hit_rate_topk": 0.2965,
+          "base_rate": 0.05212,
+          "pss": 0.4417,
+          "threshold_cal": 0.0454,
+          "tpr": 0.8026,
+          "fpr": 0.361,
+          "far": 0.8911,
+          "fnr": 0.1974,
+          "ece": 0.00943,
           "reliability_curve": [
             {
               "bin_lo": 0.0,
-              "bin_hi": 0.0091,
-              "mean_pred": 0.00161,
-              "obs_freq": 0.00408,
-              "count": 42165
+              "bin_hi": 0.0072,
+              "mean_pred": 0.00133,
+              "obs_freq": 0.00369,
+              "count": 41719
             },
             {
-              "bin_lo": 0.0091,
-              "bin_hi": 0.0092,
-              "mean_pred": 0.00909,
-              "obs_freq": 0.00868,
-              "count": 3458
+              "bin_lo": 0.0072,
+              "bin_hi": 0.0137,
+              "mean_pred": 0.00844,
+              "obs_freq": 0.00821,
+              "count": 5113
             },
             {
-              "bin_lo": 0.0092,
-              "bin_hi": 0.0177,
-              "mean_pred": 0.01068,
-              "obs_freq": 0.01206,
-              "count": 121285
+              "bin_lo": 0.0137,
+              "bin_hi": 0.0207,
+              "mean_pred": 0.01382,
+              "obs_freq": 0.01133,
+              "count": 97041
             },
             {
-              "bin_lo": 0.0177,
-              "bin_hi": 0.0237,
-              "mean_pred": 0.01983,
-              "obs_freq": 0.02101,
-              "count": 47601
+              "bin_lo": 0.0207,
+              "bin_hi": 0.0272,
+              "mean_pred": 0.02149,
+              "obs_freq": 0.02032,
+              "count": 69230
             },
             {
-              "bin_lo": 0.0237,
-              "bin_hi": 0.0354,
-              "mean_pred": 0.02655,
-              "obs_freq": 0.02941,
-              "count": 43755
+              "bin_lo": 0.0272,
+              "bin_hi": 0.0449,
+              "mean_pred": 0.02962,
+              "obs_freq": 0.02994,
+              "count": 41749
             },
             {
-              "bin_lo": 0.0354,
-              "bin_hi": 0.048,
-              "mean_pred": 0.03747,
-              "obs_freq": 0.0419,
-              "count": 42817
+              "bin_lo": 0.0449,
+              "bin_hi": 0.0542,
+              "mean_pred": 0.0467,
+              "obs_freq": 0.04237,
+              "count": 47674
             },
             {
-              "bin_lo": 0.048,
-              "bin_hi": 0.0692,
-              "mean_pred": 0.0545,
-              "obs_freq": 0.05862,
-              "count": 44761
+              "bin_lo": 0.0542,
+              "bin_hi": 0.0996,
+              "mean_pred": 0.0699,
+              "obs_freq": 0.0605,
+              "count": 45784
             },
             {
-              "bin_lo": 0.0692,
-              "bin_hi": 0.128,
-              "mean_pred": 0.09284,
-              "obs_freq": 0.0862,
-              "count": 47345
+              "bin_lo": 0.0996,
+              "bin_hi": 0.1487,
+              "mean_pred": 0.11517,
+              "obs_freq": 0.09056,
+              "count": 41377
             },
             {
-              "bin_lo": 0.128,
+              "bin_lo": 0.1487,
               "bin_hi": 1.0,
-              "mean_pred": 0.23651,
-              "obs_freq": 0.20491,
-              "count": 43913
+              "mean_pred": 0.25991,
+              "obs_freq": 0.21705,
+              "count": 47413
             }
           ],
           "alert_policy_tiers": [
             {
               "tier": "pss_optimal",
-              "threshold": 0.0629,
-              "precision": 0.1422,
-              "far": 0.8578,
-              "recall": 0.6143,
-              "fpr": 0.1913,
-              "pss": 0.4231,
-              "area_alerted_pct": 21.2,
-              "false_alarms_per_1000km2_day": 1.56
+              "alerts": 167835,
+              "tp": 18284,
+              "fp": 149551,
+              "fn": 4496,
+              "threshold": 0.0454,
+              "precision": 0.1089,
+              "far": 0.8911,
+              "recall": 0.8026,
+              "fpr": 0.361,
+              "pss": 0.4417,
+              "area_alerted_pct": 38.4,
+              "false_alarms_per_1000km2_day": 2.9343
             },
             {
               "tier": "vigilancia_5pct",
+              "alerts": 147121,
+              "tp": 17383,
+              "fp": 129738,
+              "fn": 5397,
               "threshold": 0.05,
-              "precision": 0.1275,
-              "far": 0.8725,
-              "recall": 0.6751,
-              "fpr": 0.2384,
-              "pss": 0.4367,
-              "area_alerted_pct": 25.98,
-              "false_alarms_per_1000km2_day": 1.9442
+              "precision": 0.1182,
+              "far": 0.8818,
+              "recall": 0.7631,
+              "fpr": 0.3131,
+              "pss": 0.4499,
+              "area_alerted_pct": 33.66,
+              "false_alarms_per_1000km2_day": 2.5456
             },
             {
               "tier": "advertencia_10pct",
+              "alerts": 85129,
+              "tp": 13758,
+              "fp": 71371,
+              "fn": 9022,
               "threshold": 0.1,
-              "precision": 0.1772,
-              "far": 0.8228,
-              "recall": 0.4934,
-              "fpr": 0.1182,
-              "pss": 0.3752,
-              "area_alerted_pct": 13.66,
-              "false_alarms_per_1000km2_day": 0.9642
+              "precision": 0.1616,
+              "far": 0.8384,
+              "recall": 0.604,
+              "fpr": 0.1723,
+              "pss": 0.4317,
+              "area_alerted_pct": 19.48,
+              "false_alarms_per_1000km2_day": 1.4004
             },
             {
               "tier": "critico_20pct",
+              "alerts": 30901,
+              "tp": 8127,
+              "fp": 22774,
+              "fn": 14653,
               "threshold": 0.2,
-              "precision": 0.2719,
-              "far": 0.7281,
-              "recall": 0.2834,
-              "fpr": 0.0392,
-              "pss": 0.2442,
-              "area_alerted_pct": 5.11,
-              "false_alarms_per_1000km2_day": 0.3193
+              "precision": 0.263,
+              "far": 0.737,
+              "recall": 0.3568,
+              "fpr": 0.055,
+              "pss": 0.3018,
+              "area_alerted_pct": 7.07,
+              "false_alarms_per_1000km2_day": 0.4468
             },
             {
               "tier": "extremo_30pct",
+              "alerts": 13595,
+              "tp": 4830,
+              "fp": 8765,
+              "fn": 17950,
               "threshold": 0.3,
-              "precision": 0.3581,
-              "far": 0.6419,
-              "recall": 0.1705,
-              "fpr": 0.0158,
-              "pss": 0.1548,
-              "area_alerted_pct": 2.34,
-              "false_alarms_per_1000km2_day": 0.1286
+              "precision": 0.3553,
+              "far": 0.6447,
+              "recall": 0.212,
+              "fpr": 0.0212,
+              "pss": 0.1909,
+              "area_alerted_pct": 3.11,
+              "false_alarms_per_1000km2_day": 0.172
             }
-          ]
+          ],
+          "n_evaluated": 437100,
+          "national_map_top30": {
+            "limit_per_day": 30,
+            "reviewed": 28200,
+            "hits": 6119,
+            "precision": 0.21699,
+            "recall": 0.26861
+          }
         }
       }
     }

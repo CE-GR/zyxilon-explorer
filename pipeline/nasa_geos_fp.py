@@ -9,12 +9,29 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import json
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import quote
 
 import numpy as np
 import requests
+
+
+def _get_with_retry(url: str, timeout: int = 25, retries: int = 3) -> requests.Response:
+    last_exc: Exception | None = None
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, timeout=timeout)
+            resp.raise_for_status()
+            if "GrADS Data Server - error" not in resp.text:
+                return resp
+            last_exc = RuntimeError("NASA OPeNDAP rechazó la muestra GEOS-FP")
+        except Exception as exc:
+            last_exc = exc
+        if attempt + 1 < retries:
+            time.sleep(1.5 * (attempt + 1))
+    raise last_exc or RuntimeError(f"NASA OPeNDAP unreachable: {url}")
 
 BASE = "https://opendap.nccs.nasa.gov/dods/GEOS-5/fp/0.25_deg/fcast/tavg3_2d_smp_Nx"
 SOURCE = "NASA GEOS-FP (experimental forecast)"
@@ -23,9 +40,8 @@ _VALUE_RE = re.compile(r"\[0\]\[0\],\s*([-+0-9.eE]+)")
 _ROW_RE = re.compile(r"\[\d+\]\[\d+\],\s*(.*)")
 
 
-def _latest_run(now: datetime, target: datetime, timeout: int = 12) -> tuple[datetime, str, int]:
-    response = requests.get(BASE + "/", timeout=timeout)
-    response.raise_for_status()
+def _latest_run(now: datetime, target: datetime, timeout: int = 15) -> tuple[datetime, str, int]:
+    response = _get_with_retry(BASE + "/", timeout=timeout)
     runs = []
     for date_s, hour_s in _RUN_RE.findall(response.text):
         try:
@@ -37,8 +53,7 @@ def _latest_run(now: datetime, target: datetime, timeout: int = 12) -> tuple[dat
     if not runs:
         raise RuntimeError("NASA GEOS-FP no publica ciclos accesibles")
     for run, dataset in sorted(set(runs), key=lambda item: item[0], reverse=True):
-        dds = requests.get(f"{BASE}/{dataset}.dds", timeout=timeout)
-        dds.raise_for_status()
+        dds = _get_with_retry(f"{BASE}/{dataset}.dds", timeout=timeout)
         size = re.search(r"time\s*=\s*(\d+)", dds.text)
         if not size:
             continue
@@ -54,10 +69,7 @@ def _ascii_tile(dataset: str, time_index: int, bounds: tuple[int, int, int, int]
     u = f"u10m[{time_index}][{y0}:{y1}][{x0}:{x1}]"
     v = f"v10m[{time_index}][{y0}:{y1}][{x0}:{x1}]"
     query = quote(u + "," + v, safe="[],:._")
-    response = requests.get(f"{BASE}/{dataset}.ascii?{query}", timeout=timeout)
-    response.raise_for_status()
-    if "GrADS Data Server - error" in response.text:
-        raise RuntimeError("NASA OPeNDAP rechazó la muestra GEOS-FP")
+    response = _get_with_retry(f"{BASE}/{dataset}.ascii?{query}", timeout=timeout)
     arrays = []
     for var in ("u10m", "v10m"):
         match = re.search(rf"(?im)^{var},.*?\n(.*?)(?:\n\ntime,)", response.text, re.S)

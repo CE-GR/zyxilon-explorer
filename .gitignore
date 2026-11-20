@@ -9,3 +9,5 @@ node_modules/
 data/raw/
 data/cache/
 release_open_science/
+data/processed/forecast_ledger.jsonl.lock
+data/processed/daily_model_metrics.json.lock

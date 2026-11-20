@@ -172,6 +172,8 @@ def normalize_global_df(df: pd.DataFrame, sensor_name: str) -> pd.DataFrame:
         "scan": scan,
         "track": track
     })
+    if "type" in df:
+        out["type"] = pd.to_numeric(df["type"], errors="coerce")
     return out.dropna(subset=["lat", "lon"]).reset_index(drop=True)
 
 
@@ -181,7 +183,7 @@ def fetch_live_feed(feed_key: str, cache_dir: Path | None = None, max_age_second
 
 
 def fetch_live_feed_report(feed_key: str, cache_dir: Path | None = None,
-                           max_age_seconds: int = 1800) -> tuple[pd.DataFrame, dict]:
+                           max_age_seconds: int = 1800, *, bbox: tuple | None = None) -> tuple[pd.DataFrame, dict]:
     """Igual que ``fetch_live_feed`` pero devuelve también el estado de la descarga.
 
     El estado permite distinguir con honestidad tres casos que antes se veían
@@ -206,6 +208,7 @@ def fetch_live_feed_report(feed_key: str, cache_dir: Path | None = None,
 
     text = None
     from_cache = False
+    stale_cache = False
     if cache_path and cache_path.exists():
         age = time.time() - cache_path.stat().st_mtime
         # Si el caché tiene menos de 2 horas (o max_age_seconds), servirlo al instante (0.01s)
@@ -231,6 +234,7 @@ def fetch_live_feed_report(feed_key: str, cache_dir: Path | None = None,
                 try:
                     text = cache_path.read_text(encoding="utf-8")
                     from_cache = True
+                    stale_cache = True
                 except Exception:
                     text = None
             if not text:
@@ -249,11 +253,22 @@ def fetch_live_feed_report(feed_key: str, cache_dir: Path | None = None,
 
     try:
         raw = pd.read_csv(io.StringIO(text), low_memory=False)
+        # For regional inference, verify the global feed days before selecting local rows.
+        # Normalize only the requested area (the seven-day world feed can contain hundreds of thousands of pixels).
+        if bbox is not None:
+            sensor_codes = {"VIIRS_N20_7d": {"1", "N20", "NOAA-20"}}
+            if feed_key in sensor_codes and "satellite" in raw:
+                sat = raw.satellite.astype("string").str.upper()
+                raw = raw.loc[sat.isna() | sat.isin(sensor_codes[feed_key])]
+            dates = pd.to_datetime(raw.acq_date.dropna().unique(), errors="coerce")
+            estado["observed_dates"] = sorted(dates.dropna().strftime("%Y-%m-%d").unique())
+            west, south, east, north = bbox
+            raw = raw.loc[raw.latitude.between(south, north) & raw.longitude.between(west, east)]
         sensor_type = "MODIS" if "MODIS" in feed_key else "VIIRS"
-        df = normalize_global_df(raw, sensor_type)
-        estado.update(estado="ok" if not df.empty else "vacio",
+        df = normalize_global_df(raw, feed_key if bbox is not None else sensor_type)
+        estado.update(estado="ok" if not df.empty or estado.get("observed_dates") else "vacio",
                       filas=int(len(df)),
-                      desde_cache=from_cache,
+                      desde_cache=from_cache, cache_obsoleta=stale_cache,
                       mensaje=f"{len(df)} focos" + (" (caché)" if from_cache else ""))
         return df, estado
     except Exception as e:

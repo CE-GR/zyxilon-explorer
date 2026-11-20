@@ -1504,6 +1504,12 @@
             if (note) { note.style.display = "block"; }
         })();
         var predictiveData = __PREDICTIVE_DATA__;
+        var rdAlertPolicy = __RD_ALERT_POLICY__;
+
+        function rdTierColor(index, ramp) {
+            return [ramp.mod, ramp.high, ramp.critical, '#94124d'][index] || '#687681';
+        }
+
         var predictionStatus = __PREDICTION_STATUS__;
         var climatologyData = __CLIMATOLOGY_DATA__;
         var predictionStatusEl = document.getElementById('prediction-status');
@@ -2271,18 +2277,11 @@
             } else {
                 legendContainer.innerHTML =
                     '<div style="font-weight:700; margin-bottom:5px; font-size:11px; color:#A6F014; border-bottom:2px solid #A6F014; padding-bottom:3px; text-transform:uppercase;">DR FORECAST · +' + (horizon || 24) + 'H (' + ramp.label + ')</div>' +
-                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">' +
-                        '<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:' + ramp.critGrad + '; box-shadow:0 0 8px ' + ramp.critical + '; border:1px solid #fff;"></span>' +
-                        '<span><b>Critical Risk / Active Fire</b> (\u2265 20%)</span>' +
-                    '</div>' +
-                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">' +
-                        '<span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:' + ramp.highGrad + '; box-shadow:0 0 6px ' + ramp.high + '; border:1px solid #fff;"></span>' +
-                        '<span><b>High Susceptibility</b> (6% – 19%)</span>' +
-                    '</div>' +
-                    '<div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">' +
-                        '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:' + ramp.modGrad + '; border:1px solid #fff;"></span>' +
-                        '<span><b>Moderate Ignition</b> (&lt; 6%)</span>' +
-                    '</div>' +
+                    rdAlertPolicy.map(function(tier, index) {
+                        return '<div><span style="color:' + rdTierColor(index, ramp) + '">●</span> ' +
+                            tier.label + ' ≥ ' + Math.round(tier.threshold * 100) + '%</div>';
+                    }).reverse().join('') +
+                    '<div><span style="color:#687681">●</span> Below watch</div>' +
                     '<div style="font-size:9.5px; color:#C4C4C0; margin-top:4px;">Historically evaluated probabilities; operational weather transfer not revalidated.</div>';
             }
         }
@@ -2546,6 +2545,7 @@
                     .then(function(json) {
                         if (json && json.predicciones && json.predicciones.length > 0) {
                             predictiveData = json.predicciones;
+                            if (json.alert_policy) rdAlertPolicy = json.alert_policy;
                             if (json.prediction_status) predictionStatus = json.prediction_status;
                         }
                         showPredictionHUD(
@@ -2613,6 +2613,11 @@
                 return true;
             });
 
+            // Show the highest 30 Dominican model cells for the selected region and horizon.
+            var rdCells = regFiltered.filter(function(p) { return !!p.alert_tiers; });
+            rdCells.sort(function(a, b) { return b['prob_' + horizon] - a['prob_' + horizon] || a.lat - b.lat || a.lon - b.lon; });
+            regFiltered = regFiltered.filter(function(p) { return !p.alert_tiers; }).concat(rdCells.slice(0, 30));
+
             // Dibujar plumas cónicas, halos atmosféricos y núcleos luminosos IGNIS
             predictiveLayer.clearLayers();
             var factor = horizon / 24.0;
@@ -2634,11 +2639,14 @@
                 if (hasProbability) probabilityCoverage++;
                 var prob = hasProbability ? Number(rawProb) : null;
                 var probPct = hasProbability ? (prob <= 1.0 ? prob * 100 : prob) : null;
-                var isCritical = hasProbability && probPct >= 20.0;
-                var isHigh = hasProbability && probPct >= 6.0;
+                var drIndex = p.alert_tiers ? rdAlertPolicy.findIndex(function(tier) {
+                    return tier.id === p.alert_tiers[horizon];
+                }) : -1;
+                var isCritical = p.alert_tiers ? drIndex >= 2 : hasProbability && probPct >= 20.0;
+                var isHigh = p.alert_tiers ? drIndex >= 1 : hasProbability && probPct >= 6.0;
                 var isActiveOrigin = p.kind && (p.kind.toLowerCase().indexOf("foco activo") !== -1 || p.kind.indexOf("FIRMS") !== -1);
                 if (isActiveOrigin) activeFireCount++;
-                else if (p.kind && (p.kind.indexOf("Probabilidad GFA") !== -1 || p.kind.indexOf("Ignición Diaria") !== -1 || p.kind.indexOf("Global Fire Atlas") !== -1)) modeledCellCount++;
+                else if (p.alert_tiers || (p.kind && (p.kind.indexOf("Probabilidad GFA") !== -1 || p.kind.indexOf("Ignición Diaria") !== -1 || p.kind.indexOf("Global Fire Atlas") !== -1))) modeledCellCount++;
 
                 var ramp = COLOR_RAMPS[currentRampKey] || COLOR_RAMPS.ignis;
                 var pStatus = p.probability_status || (hasProbability ? (p.is_rd ? "validated_model" : "climatology") : "unsupported");
@@ -2656,6 +2664,12 @@
                     : (isHigh
                         ? "radial-gradient(circle, rgba(255,122,0,0.44) 0%, rgba(255,122,0,0.12) 52%, rgba(255,122,0,0) 75%)"
                         : "radial-gradient(circle, rgba(234,179,8,0.36) 0%, rgba(234,179,8,0.08) 52%, rgba(234,179,8,0) 75%)"));
+                if (p.alert_tiers && hasProbability) {
+                    alertaTxt = drIndex < 0 ? 'Below watch' : rdAlertPolicy[drIndex].label;
+                    color = rdTierColor(drIndex, ramp);
+                    coreGrad = color;
+                    glowGrad = 'radial-gradient(circle, ' + color + ' 0%, transparent 72%)';
+                }
                 var corePx = isActiveOrigin ? 11 : (isCritical ? 10 : (isHigh ? 9 : 7));
 
                 var bearField = 'bearing_' + horizon;

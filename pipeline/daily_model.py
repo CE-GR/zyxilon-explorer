@@ -1,10 +1,10 @@
 """Modelo DIARIO de focos a +24h / +48h / +72h para República Dominicana (29 features físicos).
 
-Incluye dos evaluaciones temporales estrictas (sin fuga):
+Incluye una referencia histórica y una evaluación operativa retrospectiva:
 1. Serie histórica completa VIIRS S-NPP (2012–2026):
    - Entrenamiento: 2012–2021 · Calibración: 2022 · Prueba ciega: 2023–2026 (607,755 filas).
 2. Objetivo operativo observable VIIRS NOAA-20 (2018–2026, sensor NRT activo tras el retiro de S-NPP):
-   - Entrenamiento: 2018–2022 · Calibración: 2023 · Prueba ciega: 2024–2026.
+   - Entrenamiento hasta 2022; calibración enero-junio de 2023, política julio-diciembre y prueba 2024–2026.
    - Inferencia en vivo sobre 1 solo satélite (NOAA-20) para evitar desplazamiento 2x de features.
 
 29 features físicos (100% calculables en historia y en tiempo real):
@@ -21,6 +21,7 @@ Métricas operativas reportadas por horizonte (+24h, +48h, +72h):
 from __future__ import annotations
 
 import hashlib
+from io import BytesIO
 import json
 import pickle
 from datetime import datetime, timezone
@@ -34,7 +35,7 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 
 import config
-from pipeline import nasa_power
+from pipeline import nasa_power, forecast_archive
 
 OUT_METRICS = config.DATA_OUT / "daily_model_metrics.json"
 OUT_MODEL = config.DATA_OUT / "daily_model.pkl"
@@ -45,7 +46,30 @@ OUT_DEM_SLOPE = config.DATA_OUT / "rd_dem_slope.parquet"
 
 HORIZONS = (1, 2, 3)
 TRAIN_END, CAL_YEAR, TEST_START = 2021, 2022, 2023
-NOAA20_TRAIN_END, NOAA20_CAL_YEAR, NOAA20_TEST_START = 2022, 2023, 2024
+NOAA20_TRAIN_END, NOAA20_CAL_YEAR, NOAA20_TEST_START = forecast_archive.TRAIN_END, 2023, 2024
+
+# Ordered from lowest to highest. These same thresholds are rendered on the map.
+ALERT_TIERS = (
+    ("vigilancia_5pct", 0.05, "Watch"),
+    ("advertencia_10pct", 0.10, "Warning"),
+    ("critico_20pct", 0.20, "Critical"),
+    ("extremo_30pct", 0.30, "Extreme"),
+)
+
+
+def alert_policy():
+    return [{"id": key, "threshold": cutoff, "label": label} for key, cutoff, label in ALERT_TIERS]
+
+
+def alert_tier(probability):
+    return next((key for key, cutoff, _ in reversed(ALERT_TIERS) if probability >= cutoff), "below_watch")
+
+
+def cumulative_probabilities(probabilities):
+    """The event within each shorter horizon is contained in every longer one."""
+    probabilities = np.clip(np.asarray(probabilities, dtype=float), 0.0005, 0.99)
+    return np.round(np.maximum.accumulate(probabilities, axis=0), 4)
+
 
 # Exactamente 29 features físicos (100% calculables en tiempo real)
 FIRE_FEATS = [
@@ -342,13 +366,8 @@ def _metrics(
     cell_km2 = 116.6  # celda 0.1° a lat ~18.7°N (~11.1 km × 10.5 km)
     total_km2_days = max(len(y) * cell_km2, 1.0)
     tiers = []
-    for tier_name, th_val in (
-        ("pss_optimal", float(threshold)),
-        ("vigilancia_5pct", 0.05),
-        ("advertencia_10pct", 0.10),
-        ("critico_20pct", 0.20),
-        ("extremo_30pct", 0.30),
-    ):
+    thresholds = [("pss_optimal", float(threshold))] + [(key, p) for key, p, _ in ALERT_TIERS]
+    for tier_name, th_val in thresholds:
         pb = p >= th_val
         t_tp = int((pb & (y == 1)).sum())
         t_fp = int((pb & (y == 0)).sum())
@@ -360,6 +379,7 @@ def _metrics(
         t_fpr = t_fp / max(t_fp + t_tn, 1)
         tiers.append({
             "tier": tier_name,
+            "alerts": t_tp + t_fp, "tp": t_tp, "fp": t_fp, "fn": t_fn,
             "threshold": round(th_val, 5),
             "precision": round(t_prec, 4),
             "far": round(t_far, 4),
@@ -487,6 +507,8 @@ def train_and_evaluate(verbose: bool = True) -> dict:
     event_path = config.DATA_OUT / "viirs_events.parquet"
     weather_path = config.DATA_OUT / "power_daily_nodes.parquet"
     noaa20_path = config.DATA_OUT / "viirs_noaa20_events.parquet"
+    if noaa20_path.exists() and not (forecast_archive.EVENTS.exists() and forecast_archive.MASK.exists()):
+        raise FileNotFoundError("Run python -m pipeline.forecast_archive to rebuild the daily training inputs")
 
     P = build_panel(events_path=event_path, train_end=TRAIN_END)
     P_clean = P.dropna(subset=WX_FEATS)
@@ -535,54 +557,10 @@ def train_and_evaluate(verbose: bool = True) -> dict:
         "horizontes": horizontes,
     }
 
-    # Objetivo operativo observable: VIIRS NOAA-20 (calibración 2023 y prueba ciega 2024–2026 100% NOAA-20;
-    # entrenamiento continuo de 1 solo satélite 2012–2017 S-NPP + 2018–2022 NOAA-20 para estabilizar climatología 0.1°).
-    if noaa20_path.exists():
-        snpp_df = pd.read_parquet(event_path).copy()
-        n20_df = pd.read_parquet(noaa20_path).copy()
-        snpp_df["date"] = pd.to_datetime(snpp_df["date"]).dt.normalize()
-        n20_df["date"] = pd.to_datetime(n20_df["date"]).dt.normalize()
-        n20_start = n20_df["date"].min()
-        cont_df = pd.concat([snpp_df[snpp_df["date"] < n20_start], n20_df], ignore_index=True)
-        cont_path = config.DATA_OUT / "_viirs_continuous_single_sensor.parquet"
-        cont_df.to_parquet(cont_path, index=False)
-        try:
-            P_n20 = build_panel(events_path=cont_path, train_end=NOAA20_TRAIN_END)
-            P_n20_clean = P_n20.dropna(subset=WX_FEATS)
-            n20_horizontes, n20_models = _evaluate_split(
-                P_n20, NOAA20_TRAIN_END, NOAA20_CAL_YEAR, NOAA20_TEST_START, verbose=verbose
-            )
-            OUT_MODEL_NOAA20.write_bytes(pickle.dumps(n20_models))
-            n20_model_sha = _sha256(OUT_MODEL_NOAA20)
-            build_or_load_cell_stats(
-                force=True, events_path=cont_path, train_end=NOAA20_TRAIN_END, out_path=OUT_CELL_STATS_NOAA20
-            )
-        finally:
-            cont_path.unlink(missing_ok=True)
-        report["objetivo_observable_noaa20"] = {
-            "objetivo": "P(≥1 evento VIIRS NOAA-20 en celda 0.1° en (t, t+h]) — objetivo operativo NRT activo",
-            "split": {
-                "train": f"2012–2017 S-NPP + 2018–{NOAA20_TRAIN_END} NOAA-20 (1 satélite/día)",
-                "calibracion": f"{NOAA20_CAL_YEAR} (100% NOAA-20)",
-                "prueba": f"{NOAA20_TEST_START}–{int(P_n20_clean['year'].max())} (100% NOAA-20)",
-            },
-            "periodo_panel": [str(n20_df["date"].min().date()), str(n20_df["date"].max().date())],
-            "n_celdas": int(P_n20_clean["c"].nunique()),
-            "n_test_filas": int(len(P_n20_clean[P_n20_clean["year"] >= NOAA20_TEST_START])),
-            "fuentes": {
-                "incendios_noaa20": {
-                    "archivo": "data/processed/viirs_noaa20_events.parquet",
-                    "sensor": "VIIRS NOAA-20 (JPSS-1, activo NRT, 31,253 eventos 2018-04 a 2026-07)",
-                    "sha256": _sha256(noaa20_path),
-                },
-                "modelo_serializado_noaa20": {
-                    "archivo": "data/processed/daily_model_noaa20.pkl",
-                    "sha256": n20_model_sha,
-                    "sklearn_version": sklearn.__version__,
-                },
-            },
-            "horizontes": n20_horizontes,
-        }
+    if forecast_archive.EVENTS.exists():
+        from pipeline.daily_training import publish_noaa20
+        del P, P_clean
+        return publish_noaa20(report, verbose=verbose)
 
     OUT_METRICS.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return report
@@ -692,23 +670,36 @@ def predict_live_daily_rd(
     if weather_status != "ok" or rd_recent_viirs is None:
         return pd.DataFrame()
 
-    use_n20 = bool(use_noaa20_model and OUT_MODEL_NOAA20.exists() and OUT_CELL_STATS_NOAA20.exists())
+    use_n20 = use_noaa20_model
     model_path = OUT_MODEL_NOAA20 if use_n20 else OUT_MODEL
     stats_path = OUT_CELL_STATS_NOAA20 if use_n20 else OUT_CELL_STATS
-    if not model_path.exists():
-        train_and_evaluate(verbose=False)
-    models = pickle.loads(model_path.read_bytes())
+    if not model_path.exists() or not stats_path.exists():
+        return pd.DataFrame()
+    model_bytes = model_path.read_bytes()
+    model_sha = hashlib.sha256(model_bytes).hexdigest()
+    if use_n20:
+        sources = json.loads(OUT_METRICS.read_text(encoding="utf-8"))["objetivo_observable_noaa20"]["fuentes"]
+        stats_bytes = stats_path.read_bytes()
+        if (model_sha != sources["modelo_serializado_noaa20"]["sha256"]
+                or hashlib.sha256(stats_bytes).hexdigest() != sources["estadisticas_celda"]["sha256"]):
+            return pd.DataFrame()  # A model and its climatology must belong to the same published run.
+        mask_sha = rd_recent_viirs.attrs.get("mask_sha256")
+        if mask_sha is not None and mask_sha != sources["mascara_noaa20"]["sha256"]:
+            return pd.DataFrame()
+        stats = pd.read_parquet(BytesIO(stats_bytes))
+    else:
+        stats = build_or_load_cell_stats(out_path=stats_path)
+    models = pickle.loads(model_bytes)
 
-    now_dt = pd.Timestamp.now()
+    now_dt = pd.Timestamp.now(tz="UTC")
     cur_month = int(now_dt.month)
     doy = int(now_dt.day_of_year)
 
-    stats = build_or_load_cell_stats(out_path=stats_path)
     df = stats[stats["month"] == cur_month].sort_values("c").reset_index(drop=True).copy()
     df["doy_sin"] = float(np.sin(2 * np.pi * doy / 365.25))
     df["doy_cos"] = float(np.cos(2 * np.pi * doy / 365.25))
     df["model_target_sensor"] = "VIIRS NOAA-20" if use_n20 else "VIIRS S-NPP"
-    df["model_sha256"] = _sha256(model_path)
+    df["model_sha256"] = model_sha
 
     # Ventanas recientes por día + inercia térmica FRP (24h, 48h, 7d) desde 1 solo satélite NRT (NOAA-20)
     pts = rd_recent_viirs.copy()
@@ -857,16 +848,16 @@ def predict_live_daily_rd(
     df["upslope_bearing"] = np.round(upslope_bearing, 1)
     df["phi_slope"] = np.round(phi_slope, 3)
 
-    raw_probs = {}
+    raw_probs = []
     for h in HORIZONS:
         m, iso, feats = models[h]
-        X = df[feats]
-        p_cal = iso.predict(m.predict_proba(X)[:, 1])
-        raw_probs[h] = np.clip(p_cal, 0.0005, 0.99)
-
-    df["p_daily_24"] = np.round(raw_probs[1] * 100.0, 2)
-    df["p_daily_48"] = np.round(raw_probs[2] * 100.0, 2)
-    df["p_daily_72"] = np.round(raw_probs[3] * 100.0, 2)
+        raw_probs.append(iso.predict(m.predict_proba(df[feats])[:, 1]))
+    if use_n20:
+        probabilities = cumulative_probabilities(raw_probs)
+    else:
+        probabilities = np.clip(raw_probs, 0.0005, 0.99)
+    for h, probs in zip(HORIZONS, probabilities):
+        df[f"p_daily_{24*h}"] = np.round(probs * 100.0, 2)
     df["prob_24"] = df["p_daily_24"]
     df["prob_48"] = df["p_daily_48"]
     df["prob_72"] = df["p_daily_72"]

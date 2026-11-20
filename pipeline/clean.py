@@ -79,8 +79,8 @@ def persistent_cells(df: pd.DataFrame, min_calendar_months: int = 9) -> pd.DataF
     return flagged.merge(real, on=["pc_lat", "pc_lon"])[["pc_lat", "pc_lon", "months", "fraction"]]
 
 
-def clean(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Aplica los filtros a un sensor y devuelve (datos limpios, informe)."""
+def quality_filter(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Confidence, FIRMS type and country outline, independent of the archive period."""
     report = {"inicial": len(df)}
     df = df[df["conf_ok"]]
     report["tras_confianza"] = len(df)
@@ -89,12 +89,23 @@ def clean(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     df = df[inside_dr(df["lat"], df["lon"])]
     report["tras_recorte_rd"] = len(df)
 
-    pers = persistent_cells(df)
+    return df, report
+
+
+def apply_persistent_mask(df: pd.DataFrame, pers: pd.DataFrame) -> pd.DataFrame:
     if not pers.empty:
         d = config.PERSISTENT_CELL_DEG
         k = list(zip(np.floor(df["lat"] / d).astype(int), np.floor(df["lon"] / d).astype(int)))
         bad = set(zip(pers["pc_lat"], pers["pc_lon"]))
         df = df[[x not in bad for x in k]]
+    return df.reset_index(drop=True)
+
+
+def clean(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Apply the archive-wide historical harmonization filters."""
+    df, report = quality_filter(df)
+    pers = persistent_cells(df)
+    df = apply_persistent_mask(df, pers)
     report["fuentes_persistentes"] = int(len(pers))
     report["final"] = len(df)
     return df.reset_index(drop=True), report

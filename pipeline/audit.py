@@ -124,14 +124,22 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
         "horizons": dr_horizons,
     }
 
-    # Observable NOAA-20 daily model check (if built)
+    # The operational forecast requires the fitted mask, event archive, climatology and models.
     n20_blk = daily.get("objetivo_observable_noaa20")
     n20_model_path = config.DATA_OUT / "daily_model_noaa20.pkl"
     if n20_blk and n20_model_path.exists():
         n20_sha = sha256(n20_model_path)
         n20_exp = n20_blk.get("fuentes", {}).get("modelo_serializado_noaa20", {}).get("sha256")
         n20_h = {}
-        n20_ok = (n20_sha == n20_exp)
+        from pipeline import forecast_archive
+        asset_paths = {"eventos_entrenamiento": forecast_archive.EVENTS,
+                       "mascara_noaa20": forecast_archive.MASK,
+                       "estadisticas_celda": daily_model.OUT_CELL_STATS_NOAA20}
+        inputs_ok = all(path.is_file() and sha256(path) == n20_blk["fuentes"].get(key, {}).get("sha256")
+                        for key, path in asset_paths.items())
+        coherence = n20_blk.get("coherencia", {})
+        n20_ok = (n20_sha == n20_exp and inputs_ok and coherence.get("filas_comunes", 0) > 0
+                  and coherence.get("cruces_despues") == 0)
         for h_key in ("+24h", "+48h", "+72h"):
             hb = n20_blk.get("horizontes", {}).get(h_key, {})
             cb = hb.get("Climatología celda×mes", {})
@@ -158,8 +166,13 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
             "split": n20_blk.get("split"),
             "test_rows": n20_blk.get("n_test_filas"),
             "artifact_sha256_verified": n20_sha == n20_exp,
+            "training_inputs_verified": inputs_ok,
+            "horizon_coherence": coherence,
             "horizons": n20_h,
         }
+
+    else:
+        results["checks"]["dr_daily_observable_noaa20_target"] = {"ok": False, "error": "missing NOAA-20 model or metrics"}
 
     # Regenera LOYO, jump metrics, 80% PI calibration & hierarchical shrinkage desde cells.parquet
     cells_df = pd.read_parquet(config.DATA_OUT / "cells.parquet")
@@ -424,6 +437,13 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
             n21_df, n21_status = fetch_live_feed_report("VIIRS_N21_7d", cache_dir=config.DATA_CACHE)
             viirs_ok = fire_status.get("estado") == "ok" or n20_status.get("estado") == "ok" or n21_status.get("estado") == "ok"
             total_rows = int(len(fire_df) + len(n20_df) + len(n21_df))
+            from map_service import fetch_recent_viirs_rd_fast
+            rd_events = fetch_recent_viirs_rd_fast()
+            rd_available = None
+            if rd_events is None:
+                rd_available = False
+            elif live_weather:
+                rd_available = not daily_model.predict_live_daily_rd(rd_events).empty
             results["data_availability"] = {
                 "source": "NASA FIRMS VIIRS 375m 7d (S-NPP + NOAA-20 + NOAA-21)",
                 "snpp_7d_status": fire_status.get("estado"),
@@ -431,7 +451,8 @@ def run(full_daily: bool = False, live_weather: bool = False, offline: bool = Fa
                 "noaa21_7d_rows": int(len(n21_df)),
                 "status": "ok" if viirs_ok else fire_status.get("estado"),
                 "rows": total_rows,
-                "daily_rd_probability_available": viirs_ok,
+                "daily_rd_fire_input_available": rd_events is not None,
+                "daily_rd_probability_available": rd_available,
                 "message": (
                     "Constelación VIIRS 375m activa (NOAA-20/21 cubren el feed S-NPP vacío)"
                     if (fire_status.get("estado") != "ok" and viirs_ok)

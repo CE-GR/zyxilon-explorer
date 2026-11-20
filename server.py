@@ -134,9 +134,11 @@ async def get_api_focos():
 @app.get("/api/prediccion", response_class=JSONResponse)
 async def get_api_prediccion():
     """Devuelve las predicciones de ignición IA a 24h, 48h y 72h para RD."""
+    from pipeline.daily_model import alert_policy
     data = map_service.build_map_data()
     return JSONResponse(content={
         "status": "ok",
+        "alert_policy": alert_policy(),
         "prediction_status": data["prediction_status"],
         "predicciones": data["pred_records"]
     })

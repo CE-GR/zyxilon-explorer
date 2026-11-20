@@ -1,5 +1,6 @@
 # Exact locked runtime & serialization versions for Zyxilon Explorer // IGNIS
 # Used to train and serialize data/processed/daily_model.pkl (scikit-learn==1.9.1)
+filelock==4.2.4
 fastapi==0.163.1
 h3==4.5.0
 joblib==1.6.0

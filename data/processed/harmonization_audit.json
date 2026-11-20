@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-20T08:23:42+00:00",
+  "generated_utc": "2026-11-20T14:17:13+00:00",
   "grid_degrees": 0.1,
   "active_cells_total": 465,
   "jump_metrics_counts_2007_2011_vs_2012_2016": {
@@ -213,9 +213,9 @@
     "model_class": "HistGradientBoostingClassifier + IsotonicRegression",
     "n_features": 29,
     "batch_cells": 465,
-    "single_horizon_24h_median_ms": 7.38,
-    "single_horizon_24h_p95_ms": 9.74,
-    "all_3_horizons_median_ms": 22.02,
-    "all_3_horizons_p95_ms": 28.03
+    "single_horizon_24h_median_ms": 7.87,
+    "single_horizon_24h_p95_ms": 8.54,
+    "all_3_horizons_median_ms": 23.97,
+    "all_3_horizons_p95_ms": 24.92
   }
 }

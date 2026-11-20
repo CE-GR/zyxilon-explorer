@@ -348,104 +348,33 @@ def _clean_pts_fast(df_in: pd.DataFrame) -> List[Dict[str, Any]]:
     return records
 
 
-def fetch_recent_viirs_rd_fast(max_age_seconds: int = 3600, single_sensor_primary: bool = True) -> pd.DataFrame:
-    """Garantiza la descarga/actualización de los feeds VIIRS de 7 días y extrae focos
-    térmicos de República Dominicana preservando su identidad espacio-temporal
-    (coordenadas + fecha + hora + satélite) para las ventanas f_lag1, f_2d, f_7d y FRP.
+def fetch_recent_viirs_rd_fast(max_age_seconds: int = 3600) -> pd.DataFrame | None:
+    """None means an unavailable input. An empty event table means a valid feed with no RD events."""
+    import hashlib
+    from io import BytesIO
+    from pipeline import clean, forecast_archive, grid
 
-    Con single_sensor_primary=True (por defecto para el modelo diario), usa 1 solo satélite
-    activo (VIIRS NOAA-20, emparejando 1:1 el objetivo entrenado sin inflar 2x las features
-    de historial); solo cae a NOAA-21 si el feed NOAA-20 está vacío."""
-    primary_feeds = ["VIIRS_N20_7d", "VIIRS_N20_24h"]
-    fallback_feeds = ["VIIRS_N21_7d", "VIIRS_N21_24h"]
-    feeds_to_ensure = ("VIIRS_N20_7d",) if single_sensor_primary else ("VIIRS_N20_7d", "VIIRS_N21_7d")
-
-    for feed_7d in feeds_to_ensure:
-        c_file_7d = config.DATA_CACHE / f"{feed_7d}.csv"
-        needs_fetch = not c_file_7d.exists()
-        if not needs_fetch:
-            try:
-                needs_fetch = (time.time() - c_file_7d.stat().st_mtime) > max_age_seconds
-            except Exception:
-                needs_fetch = True
-        if needs_fetch:
-            try:
-                gf.fetch_live_feed(feed_7d, cache_dir=config.DATA_CACHE, max_age_seconds=max_age_seconds)
-            except Exception:
-                pass
-
-    def _read_feeds(feed_list: list[str]) -> list[pd.DataFrame]:
-        frames = []
-        for feed_name in feed_list:
-            c_file = config.DATA_CACHE / f"{feed_name}.csv"
-            if c_file.exists():
-                try:
-                    with open(c_file, "r", encoding="utf-8", errors="ignore") as f:
-                        header = [h.strip() for h in f.readline().split(",")]
-                        lat_i = header.index("latitude") if "latitude" in header else header.index("lat") if "lat" in header else -1
-                        lon_i = header.index("longitude") if "longitude" in header else header.index("lon") if "lon" in header else -1
-                        if lat_i != -1 and lon_i != -1:
-                            matched = []
-                            for line in f:
-                                parts = line.strip().split(",")
-                                if len(parts) > max(lat_i, lon_i):
-                                    try:
-                                        la = float(parts[lat_i])
-                                        lo = float(parts[lon_i])
-                                        if 17.4 <= la <= 20.1 and -72.1 <= lo <= -68.3:
-                                            matched.append(parts)
-                                    except ValueError:
-                                        continue
-                            if matched:
-                                df_sub = pd.DataFrame(matched, columns=header)
-                                for col in ["latitude", "lat", "longitude", "lon", "frp"]:
-                                    if col in df_sub.columns:
-                                        df_sub[col] = pd.to_numeric(df_sub[col], errors="coerce")
-                                if "date" not in df_sub.columns and "acq_date" in df_sub.columns:
-                                    df_sub["date"] = pd.to_datetime(df_sub["acq_date"], errors="coerce")
-                                elif "date" in df_sub.columns:
-                                    df_sub["date"] = pd.to_datetime(df_sub["date"], errors="coerce")
-                                if "satellite" not in df_sub.columns:
-                                    df_sub["satellite"] = "NOAA-20" if "N20" in feed_name else "NOAA-21"
-                                frames.append(df_sub)
-                except Exception:
-                    pass
-        return frames
-
-    if single_sensor_primary:
-        out_frames = _read_feeds(primary_feeds)
-        if not out_frames:
-            try:
-                gf.fetch_live_feed("VIIRS_N21_7d", cache_dir=config.DATA_CACHE, max_age_seconds=max_age_seconds)
-            except Exception:
-                pass
-            out_frames = _read_feeds(fallback_feeds)
-    else:
-        out_frames = _read_feeds(primary_feeds + fallback_feeds)
-    if out_frames:
-        recent_viirs = pd.concat(out_frames, ignore_index=True)
-        if "lat" not in recent_viirs.columns and "latitude" in recent_viirs.columns:
-            recent_viirs["lat"] = recent_viirs["latitude"]
-        if "lon" not in recent_viirs.columns and "longitude" in recent_viirs.columns:
-            recent_viirs["lon"] = recent_viirs["longitude"]
-        recent_viirs["lat_r"] = pd.to_numeric(recent_viirs["lat"], errors="coerce").round(5)
-        recent_viirs["lon_r"] = pd.to_numeric(recent_viirs["lon"], errors="coerce").round(5)
-        recent_viirs["date_norm"] = pd.to_datetime(recent_viirs["date"], errors="coerce").dt.normalize()
-        time_col = "acq_time" if "acq_time" in recent_viirs.columns else ("time_utc" if "time_utc" in recent_viirs.columns else None)
-        dedup_cols = ["lat_r", "lon_r", "date_norm"]
-        if time_col:
-            dedup_cols.append(time_col)
-        if "satellite" in recent_viirs.columns:
-            dedup_cols.append("satellite")
-        recent_viirs = (
-            recent_viirs
-            .dropna(subset=["lat_r", "lon_r", "date_norm"])
-            .drop_duplicates(subset=dedup_cols)
-            .drop(columns=["lat_r", "lon_r", "date_norm"], errors="ignore")
-            .reset_index(drop=True)
-        )
-        return recent_viirs
-    return pd.DataFrame()
+    pixels, status = gf.fetch_live_feed_report("VIIRS_N20_7d", cache_dir=config.DATA_CACHE,
+                                               max_age_seconds=max_age_seconds, bbox=config.BBOX)
+    if status.get("estado") != "ok" or status.get("cache_obsoleta"):
+        return None
+    today = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+    days = pd.date_range(end=today, periods=7)
+    if not days.strftime("%Y-%m-%d").isin(status.get("observed_dates", [])).all():
+        return None
+    if pixels.empty:
+        return pixels
+    local = pixels.loc[pixels.date.isin(days) & pixels.satellite.isin(["NOAA-20", "N20", "1"])].copy()
+    local["conf_ok"] = local.confidence.str.lower().isin(config.VIIRS_KEEP_CONFIDENCE)
+    if "type" not in local:
+        local["type"] = 0  # FIRMS NRT omits type in some VIIRS feeds.
+    local = local.drop_duplicates(["lat", "lon", "date", "time_utc", "satellite"])
+    local, _ = clean.quality_filter(local)
+    mask_bytes = forecast_archive.MASK.read_bytes()
+    mask = pd.read_parquet(BytesIO(mask_bytes))
+    events = grid.viirs_events(clean.apply_persistent_mask(local, mask))
+    events.attrs["mask_sha256"] = hashlib.sha256(mask_bytes).hexdigest()
+    return events
 
 
 def _lookup_geos_wind(wx_map: Dict[str, dict], lat: float, lon: float, max_deg: float = 0.35) -> Dict[str, Any] | None:
@@ -693,6 +622,73 @@ def _build_global_predictions(all_pts: pd.DataFrame, max_clusters: int = 50, max
     return glob_records
 
 
+def format_rd_forecasts(daily_pred, model_target_sensor):
+    from pipeline import daily_model
+    rd_records = []
+    gp_sorted = daily_pred.sort_values(["prob_24", "cell_lat", "cell_lon"], ascending=[False, True, True])
+    for rank, (_, r) in enumerate(gp_sorted.iterrows()):
+        la = float(r["cell_lat"])
+        lo = float(r["cell_lon"])
+        prov = geo.point_province(la, lo) or str(r.get("provincia", "Zona Forestal"))
+        p24 = round(float(r["p_daily_24"]) / 100.0, 4)
+        p48 = round(float(r["p_daily_48"]) / 100.0, 4)
+        p72 = round(float(r["p_daily_72"]) / 100.0, 4)
+        fwi_v = round(float(r["fwi"]), 1)
+        t_v = round(float(r["t_noon"]), 1)
+        rh_v = round(float(r["rh_noon"]), 0)
+        vpd_v = round(float(r["vpd"]), 2)
+        wind_v = round(float(r["wind_kmh"]), 1)
+        slope_v = round(float(r["slope_deg"]), 1)
+        spread24 = round(float(r["spread_24"]), 1)
+        bearing_v = round(float(r["bearing"]), 0)
+        rd_records.append({
+            "lat": round(la, 4),
+            "lon": round(lo, 4),
+            "prob_24": p24,
+            "prob_48": p48,
+            "prob_72": p72,
+            "p_daily_24": round(float(r["p_daily_24"]), 2),
+            "p_daily_48": round(float(r["p_daily_48"]), 2),
+            "p_daily_72": round(float(r["p_daily_72"]), 2),
+            "spread_24": spread24,
+            "bearing": bearing_v,
+            "bearing_24": round(float(r.get("bearing_24", bearing_v)), 0),
+            "bearing_48": round(float(r.get("bearing_48", bearing_v)), 0),
+            "bearing_72": round(float(r.get("bearing_72", bearing_v)), 0),
+            "wind_bearing_to_24": round(float(r.get("wind_bearing_to_24", bearing_v)), 0),
+            "wind_bearing_to_48": round(float(r.get("wind_bearing_to_48", bearing_v)), 0),
+            "wind_bearing_to_72": round(float(r.get("wind_bearing_to_72", bearing_v)), 0),
+            "wind_forecast_kmh_24": round(float(r.get("wind_forecast_kmh_24", wind_v)), 1),
+            "wind_forecast_kmh_48": round(float(r.get("wind_forecast_kmh_48", wind_v)), 1),
+            "wind_forecast_kmh_72": round(float(r.get("wind_forecast_kmh_72", wind_v)), 1),
+            "wind_kmh": wind_v,
+            "slope_deg": slope_v,
+            "frp": None,
+            "fwi": fwi_v,
+            "temp_c": t_v,
+            "rh_pct": rh_v,
+            "vpd_kpa": vpd_v,
+            "terr": f"{prov} (DR)",
+            "is_rd": True,
+            "kind": f"Daily VIIRS Event (HGB+Isotonic · 29 Features · {model_target_sensor})",
+            "model_target_sensor": model_target_sensor,
+            "sensor_source": "VIIRS_N20_7d",
+            "weather_degraded": bool(r.get("weather_degraded", False)),
+            "alert_tiers": {str(h): daily_model.alert_tier(prob)
+                            for h, prob in ((24, p24), (48, p48), (72, p72))},
+            "probability_status": "validated_model",
+            "probability_supported": True,
+            "probability_validated": True,
+            "probability_label": f"P({model_target_sensor} event) · 29 ML Features + Isotonic",
+            "show_spread_cone": True,
+            "weather_source": "Open-Meteo hourly + DEM SRTM",
+            "scenario_note": f"Calibrated daily probability ({model_target_sensor} target); hourly wind + DEM slope orientation scenario (not physical perimeter).",
+            "min_horizon": 24,
+            "rank": rank,
+        })
+    return rd_records
+
+
 def build_map_data(force: bool = False) -> Dict[str, Any]:
     """Descarga y procesa datos FIRMS NRT para la estación satelital con caché instantáneo (<2ms).
     Al actualizar data_json, invalida el HTML cacheado para evitar servir vistas con datos antiguos."""
@@ -770,89 +766,29 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
 
     # 1. Inferencia diaria de alta resolución para República Dominicana (29 features · objetivo NOAA-20)
     rd_records = []
+    rd_status = "forecast unavailable"
     try:
         from pipeline import daily_model, forecast_ledger
-        rd_viirs_sub = fetch_recent_viirs_rd_fast(single_sensor_primary=True)
-        daily_pred = daily_model.predict_live_daily_rd(rd_viirs_sub, weather_status="ok", prefer_cache_only=True)
-        if daily_pred.empty:
+        rd_viirs_sub = fetch_recent_viirs_rd_fast()
+        rd_status = "NOAA-20 seven-day feed unavailable" if rd_viirs_sub is None else "weather or model unavailable"
+        daily_pred = daily_model.predict_live_daily_rd(rd_viirs_sub, prefer_cache_only=True)
+        if daily_pred.empty and rd_viirs_sub is not None:
             daily_pred = daily_model.predict_live_daily_rd(rd_viirs_sub, weather_status="ok", prefer_cache_only=False)
         if not daily_pred.empty:
             model_target_sensor = str(daily_pred["model_target_sensor"].iloc[0]) if "model_target_sensor" in daily_pred.columns else "VIIRS NOAA-20"
             model_sha_used = str(daily_pred["model_sha256"].iloc[0]) if "model_sha256" in daily_pred.columns else ""
-            gp_sorted = daily_pred.sort_values("prob_24", ascending=False)
-            added_ai = 0
-            for _, r in gp_sorted.iterrows():
-                if added_ai >= 30:
-                    break
-                la = float(r["cell_lat"])
-                lo = float(r["cell_lon"])
-                prov = geo.point_province(la, lo) or str(r.get("provincia", "Zona Forestal"))
-                if prov == "Zona Fronteriza / Costera":
-                    continue
-                min_h = 24
-                p24 = round(float(r["p_daily_24"]) / 100.0, 4)
-                p48 = round(float(r["p_daily_48"]) / 100.0, 4)
-                p72 = round(float(r["p_daily_72"]) / 100.0, 4)
-                fwi_v = round(float(r["fwi"]), 1)
-                t_v = round(float(r["t_noon"]), 1)
-                rh_v = round(float(r["rh_noon"]), 0)
-                vpd_v = round(float(r["vpd"]), 2)
-                wind_v = round(float(r["wind_kmh"]), 1)
-                slope_v = round(float(r["slope_deg"]), 1)
-                spread24 = round(float(r["spread_24"]), 1)
-                bearing_v = round(float(r["bearing"]), 0)
-                rd_records.append({
-                    "lat": round(la, 4),
-                    "lon": round(lo, 4),
-                    "prob_24": p24,
-                    "prob_48": p48,
-                    "prob_72": p72,
-                    "p_daily_24": round(float(r["p_daily_24"]), 2),
-                    "p_daily_48": round(float(r["p_daily_48"]), 2),
-                    "p_daily_72": round(float(r["p_daily_72"]), 2),
-                    "spread_24": spread24,
-                    "bearing": bearing_v,
-                    "bearing_24": round(float(r.get("bearing_24", bearing_v)), 0),
-                    "bearing_48": round(float(r.get("bearing_48", bearing_v)), 0),
-                    "bearing_72": round(float(r.get("bearing_72", bearing_v)), 0),
-                    "wind_bearing_to_24": round(float(r.get("wind_bearing_to_24", bearing_v)), 0),
-                    "wind_bearing_to_48": round(float(r.get("wind_bearing_to_48", bearing_v)), 0),
-                    "wind_bearing_to_72": round(float(r.get("wind_bearing_to_72", bearing_v)), 0),
-                    "wind_forecast_kmh_24": round(float(r.get("wind_forecast_kmh_24", wind_v)), 1),
-                    "wind_forecast_kmh_48": round(float(r.get("wind_forecast_kmh_48", wind_v)), 1),
-                    "wind_forecast_kmh_72": round(float(r.get("wind_forecast_kmh_72", wind_v)), 1),
-                    "wind_kmh": wind_v,
-                    "slope_deg": slope_v,
-                    "frp": None,
-                    "fwi": fwi_v,
-                    "temp_c": t_v,
-                    "rh_pct": rh_v,
-                    "vpd_kpa": vpd_v,
-                    "terr": f"{prov} (DR)",
-                    "is_rd": True,
-                    "kind": f"Daily AI Ignition (HGB+Isotonic · 29 Features · {model_target_sensor})",
-                    "model_target_sensor": model_target_sensor,
-                    "probability_status": "validated_model",
-                    "probability_supported": True,
-                    "probability_validated": True,
-                    "probability_label": f"P({model_target_sensor} event) · 29 ML Features + Isotonic",
-                    "show_spread_cone": True,
-                    "weather_source": "Open-Meteo hourly + DEM SRTM",
-                    "scenario_note": f"Calibrated daily probability ({model_target_sensor} target); hourly wind + DEM slope orientation scenario (not physical perimeter).",
-                    "min_horizon": min_h,
-                    "rank": added_ai,
-                })
-                added_ai += 1
+            rd_status = "ok"
+            rd_records = format_rd_forecasts(daily_pred, model_target_sensor)
             if rd_records and model_sha_used:
                 try:
                     forecast_ledger.append_forecast_snapshot(
                         rd_records,
                         model_sha256=model_sha_used,
-                        sensor_source="VIIRS_NOAA20_7d",
+                        sensor_source="VIIRS_N20_7d",
                         target_definition=f"P(>=1 {model_target_sensor} event in 0.1deg cell in (t, t+h])",
                     )
-                except Exception:
-                    pass
+                except (OSError, ValueError, TimeoutError) as exc:
+                    print(f"[Zyxilon Explorer] Forecast ledger unavailable: {exc}")
     except Exception as e:
         print(f"[Zyxilon Explorer] Warning generating DR prediction: {e}")
 
@@ -862,6 +798,9 @@ def build_map_data(force: bool = False) -> Dict[str, Any]:
     # 3. Combine records: DR first (priority indexed) then Global
     pred_records = rd_records + glob_records
     prediction_status = f"Global & DR: {len(pred_records)} active forecast cells ({len(rd_records)} DR + {len(glob_records)} Global)"
+    if not rd_records:
+        prediction_status += f" · RD: {rd_status}"
+
 
     # Provincias y límites
     dom_outline = []
@@ -947,6 +886,7 @@ def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl:
     leaflet_js, leaflet_css = get_leaflet_assets()
     circle_js = get_circle_selector_asset()
 
+    from pipeline import daily_model
     template_path = config.ROOT / "static" / "firms_fullscreen.html"
     template_content = template_path.read_text(encoding="utf-8")
 
@@ -967,6 +907,7 @@ def render_map_html(center_lat: float = 20.0, center_lon: float = 0.0, zoom_lvl:
         .replace("__V20_DATA__", json.dumps(data["v20_records"]))
         .replace("__V21_DATA__", json.dumps(data["v21_records"]))
         .replace("__VSNPP_DATA__", json.dumps(data["vsnpp_records"]))
+        .replace("__RD_ALERT_POLICY__", json.dumps(daily_model.alert_policy()))
         .replace("__PREDICTIVE_DATA__", json.dumps(data["pred_records"], ensure_ascii=False))
         .replace("__PREDICTION_STATUS__", json.dumps(data["prediction_status"], ensure_ascii=False))
         .replace("__CLIMATOLOGY_DATA__", json.dumps(clim_map_payload, ensure_ascii=False))

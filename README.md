@@ -15,7 +15,7 @@
 - **Multi-Scale Geodesic & Operational Solution:** Zyxilon Explorer combines **three harmonization tiers** plus **live `+24h/+48h/+72h` forecasting**, with every number stored in plain JSON ([`data/processed/harmonization_audit.json`](data/processed/harmonization_audit.json)) and recomputed locally by our internal verification script (`python -m pipeline.audit --offline`) on any clean clone:
   1. **Production National Radiometric Ensemble (`model_national.json`):** Collapses `×4.52 → ×0.91/×0.92` (`6.29%` annual median error, `MAE 15.62`, `r = 0.964`, `0.008%` net bias; simple ratio `razon_px` achieves `5.92%` / `MAE 15.81`), with **full double-nested out-of-sample `80%` Prediction Intervals including inner-fold method selection** (**`78.7%` [`137/174` mo] on counts; `78.2%` [`136/174` mo] with inner FRP method selection / `78.7%` [`137/174` mo] fixed FRP method**) where the held-out outer year $y$ never participates in method selection, inner model fitting, inner residuals, or quantile calibration.
   2. **True 4-Tier Geodesic Uber H3 Resolution 7 Hierarchy (`pipeline/harmonize.py:h3_res7_hierarchical_loyo`):** Indexes all `30,653` MODIS + `55,917` VIIRS events (`81,089` pixels) onto **`10,058` active Uber H3 Res. 7 hexagons** (`3.84 km²` measured area — **`~160×` finer** than `0.25°` rectangular grids) → `303` H3 Res. 5 parents → `32` ADM1 provinces → National, beating the flat national ensemble in monthly MAE (**`15.37`** vs `15.62`, `r = 0.9622`, `5.27%` annual median error, **`78.7%` double-nested OOS `80% PI`**).
-  3. **0.1° Empirical-Bayes Hierarchical Shrinkage (`pipeline/harmonize.py:hierarchical_shrinkage_loyo`):** `464` active overlap `0.1°` (~11 km) cells → `32` ADM1 provinces → National, lowering national annual median LOYO error to **`2.58%`** (`MAE 15.08`, `r = 0.9662`, `53.0%` direct cell weight).
+  3. **0.1° Empirical-Bayes Hierarchical Shrinkage (`pipeline/harmonize.py:hierarchical_shrinkage_loyo`):** `464` active overlap `0.1°` (~11 km) cells → `32` ADM1 provinces → National, lowering national annual median LOYO error to **`2.50%`** (`MAE 15.08`, `r = 0.9662`, `53.0%` direct cell weight).
 
 ---
 
@@ -23,7 +23,7 @@
 
 ### True Geodesic Uber H3 Res. 7 (`3.84 km²`) + `0.1°` (`465`-Cell) Dual Grid Architecture
 - **True Multi-Scale Geodesic H3 Res. 7 (`h3_res7_hierarchical_loyo`):** Operates directly on point-level `modis_points.parquet` & `viirs_events.parquet` (`10,058` active DR Res-7 hexagons, `3.84 km²` measured via `h3.cell_area`, `9,669` overlap hexagons → `303` Res-5 parents → `32` ADM1 provinces → National), plus H3 Res. 8 episode clustering (`pipeline/episodes.py`) and circle AOI exports (`pipeline/spatial_circle.py`).
-- **Operational `0.1°` Grid (`config.GRID_DEG = 0.1`, `465` cells):** Powers the `27`-year monthly `12×27` calendar, `0.1°` hierarchical benchmark (`2.58%`), and daily `+24h/+48h/+72h` DR forecast models (`~6.25×` finer area than `0.25°` grids).
+- **Operational `0.1°` Grid (`config.GRID_DEG = 0.1`, `465` cells):** Powers the `27`-year monthly `12×27` calendar, `0.1°` hierarchical benchmark (`2.50%`), and daily `+24h/+48h/+72h` DR forecast models (`~6.25×` finer area than `0.25°` grids).
 
 ### FRP Thermophysical Ratio (`×1.20`) & Aqua Orbital Drift (`2022–2026`)
 - Across `2007–2011` vs. `2012–2016` (`frp_jump_metrics`), raw hotspot counts jump by **`×4.52`**, while integrated **Fire Radiative Power (FRP, MW)** shifts by only **`×1.20`** (`1.34×` across full `2012–2026` overlap), physically indicating that post-2012 count inflation stems largely from low-energy agricultural micro-burns missed inside MODIS `1 km` footprints.
@@ -57,13 +57,19 @@ Every reconstructed post-2012 month in `/api/climatology` and `[ ↓ EXPORT CSV 
 
 ## 3. Live Forecasting (`/mapa`), Measured Inference Latency & Reproducibility
 
-Both forecast tiers are reported side-by-side from their locked out-of-sample test JSONs:
+The historical reference and operational forecasts use the retrospective evaluations below. The NOAA-20 period has already been examined during development.
 
 | Forecast Tier | Model & Features | Locked Test Set | `+24h` / `+48h` / `+72h` ROC-AUC | PR-AUC / PSS / ECE (`+24h`) | Brier Skill vs. Baseline | Measured Batch Latency (`465` cells) |
 | --- | --- | --- | :---: | :---: | :---: | :---: |
 | **DR Daily · S-NPP 15-Yr (`daily_model_metrics.json`)** | `HistGradientBoostingClassifier` + Isotonic (**`29` physical features**: 12 fire/FRP `24h/48h/7d` lags + 5 clim/DOY + 2 SRTM DEM `elev/slope` + 10 POWER/FWI) | `2023–2026` (`608,220` rows; base rate `1.94%–5.10%`) | **`0.8236` / `0.8138` / `0.8075`** | **`PR 0.1381`** (`7.1×` base) · **`PSS 0.4889`** · `ECE 0.0032` (`FAR 0.948`, `FNR 0.235`) | **`+2.93%` / `+3.39%` / `+3.88%`** vs. cell×month clim. (`0.779`) | **`~6.5 ms`** (`+24h`) / **`~19.5 ms`** (3 horizons) |
-| **DR Daily · Observable `NOAA-20` Target (`daily_model_noaa20.pkl`)** | Same **`29` physical features**, continuous 1-sat train (`2012–2017 S-NPP + 2018–2022 NOAA-20`), calibrated on `2023 NOAA-20` (`31,253` events `2018-04`–`2026-07`) | `2024–2026` (`438,495` rows; **100% active `NOAA-20`**) | **`0.8130` / `0.8023` / `0.7955`** | **`PR 0.1147`** · **`PSS 0.4494`** · **`ECE 0.0015`** (`FAR 0.937` at PSS th; **`23%–57%` precision** at tiered alerts) | **`+2.53%` / `+3.26%` / `+3.65%`** vs. cell×month clim. (weather beats no-weather at all 3 horizons) | **`~6.5 ms`** (`+24h`) · 1:1 live `NOAA-20` feed |
+| **DR Daily · NOAA-20** | 29 features, training-only sensor masks, independent isotonic calibration (January–June 2023) and threshold selection (July–December 2023) | 2024–July 2026, **438,030 / 437,565 / 437,100** labeled cell-days | **0.8196 / 0.8082 / 0.8024** | **AP 0.1245**, PSS 0.4797, ECE 0.00218 | **+2.57% / +3.21% / +3.38%** against cell-by-month climatology | Three cumulative horizons per cell |
 | **Global GFA (`global_fire_model_metrics.json`)** | Empirical `1°` cell×month prior + per-horizon Isotonic (`13,364` cells, **location + month only, no weather**) | `2022–2025` (`~19.5M` windows, `3,201,278` fires) | **`0.9413` / `0.9367` / `0.9323`** | `PR 0.5736` (`+24h`) | **`+36.9%` / `+43.1%` / `+46.4%`** vs. global-month baseline | `<1 ms` lookup |
+
+The daily training archive combines S-NPP observations before 2018-04-01 with NOAA-20 through 2026-07-31. The NOAA-20 persistent-source mask uses data through 2022 (545 cells). This yields 33,096 NOAA-20 events for forecasting. The 31,253 events in the historical harmonization archive use its separate full-period mask. Training, calibration and threshold selection exclude origins whose labels reach the next block. Longer horizons retain at least the probability of every shorter horizon. All 437,100 complete evaluation rows satisfy this constraint.
+
+At +24h the NOAA-20 PSS threshold has 4.97% precision and 77.81% recall. The fixed Watch / Warning / Critical / Extreme cutoffs (5 / 10 / 20 / 30%) have precision of 9.66 / 17.00 / 25.80 / 40.48% and recall of 49.51 / 26.14 / 11.82 / 2.96%. Each positive is a satellite detection in a cell and future window. The API exposes the full available grid, and the map displays the 30 highest probabilities in the selected horizon and region. Successful FastAPI refreshes record the full Dominican grid once per UTC day and model in the ledger. A failed or incomplete NOAA-20 feed suspends the Dominican forecast.
+
+On the training-masked NOAA-20 target, we also rescored the v1.0.0 model using its own cell climatology. With the same 30-cell daily review budget the old and new models captured 2,592 and 2,624 positive windows at +24h, 4,465 and 4,551 at +48h, and 5,939 and 6,119 at +72h. The new national rankings are recorded in `national_map_top30` per horizon. A positive window can refer to a recurring fire.
 
 **Fair `+24h` Baseline Ablation (`2023–2026`, `608,220` rows, `daily_model_metrics.json`):**
 - `Climatología celda×mes`: `ROC 0.7792` | `PR 0.0921` | `Brier 0.01829` (`0.00%`) | `PSS 0.4120` | `ECE 0.0033`
@@ -84,11 +90,14 @@ Both forecast tiers are reported side-by-side from their locked out-of-sample te
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-lock.txt
 
-# Run automated offline unit tests (< 5 seconds)
+# Run automated offline tests
 python -m unittest discover -s tests -v
 
 # Run internal reproducibility & file-integrity self-check (no data/raw/ or API keys needed)
 python -m pipeline.audit --offline
+
+# Refit the operational model using the bundled training-filtered archive
+python -m pipeline.daily_training
 
 # Launch FastAPI server (http://localhost:8080)
 uvicorn server:app --host 0.0.0.0 --port 8080
@@ -118,7 +127,7 @@ To ensure full transparency between our 30-second hackathon pitch video and the 
 | `×4.52 → ×0.92`, `FRP ×1.20` | **`×4.52 → ×0.91/×0.92`** (Out-of-block `2017–2026` blind: **`×0.897`**), **`FRP ×1.20`** (exact) | `data/processed/harmonization_audit.json` |
 | `Uber H3 Res. 7` | **`10,058` H3 Res. 7 cells (`3.84 km²` measured, `MAE 15.37`, `r = 0.962`)** + `0.1°` (`465`-cell) operational grid & published 32-province series | `pipeline/harmonize.py`, `harmonized_provinces_monthly.csv` |
 | `±2.4%` LOYO error | **`2.50%`** national annual median error (`0.1°` hierarchical LOYO, `MAE 15.08`, `78.8%` 32-province `80% PI`) / **`6.29%`** flat ensemble | `data/processed/harmonization_audit.json` |
-| `0.823 ROC-AUC / 0.131 PR-AUC` | **`0.8236 ROC-AUC / 0.1381 PR-AUC`** (`+24h` locked `2023–2026` S-NPP, `PSS 0.4889`, `ECE 0.0032`) + **`0.8130 ROC-AUC / +2.53% BSS / ECE 0.0015`** on 100% observable `NOAA-20` (`2024–2026`, `438,495` rows) | `data/processed/daily_model_metrics.json` |
+| `0.823 ROC-AUC / 0.131 PR-AUC` | **`0.8236 ROC-AUC / 0.1381 PR-AUC`** (`+24h` locked `2023–2026` S-NPP, `PSS 0.4889`, `ECE 0.0032`) + **`0.8196 ROC-AUC / +2.57% BSS / ECE 0.00218`** on NOAA-20 (2024–July 2026, 438,030 labeled +24h cell-days) | `data/processed/daily_model_metrics.json` |
 | `LightGBM / 29 features / 12.4 ms` | **`HistGradientBoostingClassifier`** (histogram GBDT, exact **`29` physical features** + Isotonic), **`~6.5 ms`** (`+24h`, `465` cells) | `pipeline/daily_model.py`, `harmonization_audit.json` |
 
 ### Declared Scientific Limitations
@@ -126,7 +135,7 @@ To ensure full transparency between our 30-second hackathon pitch video and the 
 2. **Cloud & Dense Smoke Masking:** Mid-wave thermal channels (`3.74 µm / 3.96 µm`) cannot penetrate optically thick clouds; zero detections under heavy cloud cover represent a lower bound.
 3. **Pre-2012 Sub-Resolution Micro-Burns:** In cells where `2000–2011` had only sub-`1 km` burns missed by MODIS, reconstructed pre-2012 values remain zero rather than synthesizing detections.
 4. **Global Forecast Scope & Spread Limits (`global_fire_model_metrics.json`):** The global `ROC-AUC 0.941` model uses location and month only (no weather forecast) benchmarked against a location-agnostic global monthly baseline. Global spread speed improves MAE by **`+5.05%`** (`0.439` vs. `0.462 km/day`), while historical direction-sector accuracy (`27.6%` vs. `27.5%` baseline) shows negligible skill; GEOS-FP wind vectors represent orientation scenarios, not validated fire perimeters, and cones are disabled on `1°` climatological cells.
-5. **Weather Domain Shift & Rare-Event FAR:** While the live daily target is now trained and evaluated directly on the active single-satellite **`VIIRS NOAA-20`** sensor (`daily_model_noaa20.pkl`, eliminating S-NPP retirement and 2-satellite feature shift), historical training uses NASA POWER reanalysis whereas live inference uses Open-Meteo forecasts; moreover, given the `~1.9%` daily cell prevalence, high recall (`TPR ~70–77%`) still entails high cell-day `FAR (~0.94)` at the PSS-optimal alert threshold.
+5. **Weather Domain Shift & Rare-Event FAR:** While the live daily target is now trained and evaluated directly on the active single-satellite **`VIIRS NOAA-20`** sensor (`daily_model_noaa20.pkl`, eliminating S-NPP retirement and 2-satellite feature shift), historical training uses NASA POWER reanalysis whereas live inference uses Open-Meteo forecasts; moreover, given the `~1.9%` daily cell prevalence, high recall (`TPR ~70–77%`) still entails high cell-day `FAR (0.9503 for the operational NOAA-20 model)` at the PSS-optimal alert threshold.
 6. **Internal Self-Check & File-Integrity Scope:** `python -m pipeline.audit` (`audit_report.json` and `harmonization_audit.json`) is an **internal self-check script** written by this team — **this project has not been externally audited, certified, or endorsed by NASA or CONAE**. SHA-256 checks and `forecast_ledger.jsonl` verify local file integrity and append-only forecast provenance (not external certification). Multi-gigabyte raw archives under `data/raw/` are excluded via `.gitignore`; on a clean GitHub clone, `python -m pipeline.audit --offline` and `python -m unittest discover -s tests -v` verify the bundled processed artifacts (`raw_files_present: false`).
 
 ---
